@@ -1,0 +1,7 @@
+# Keep local database credentials out of version control.
+config/db.properties
+
+# Java compiler output
+*.class
+out/
+bin/
