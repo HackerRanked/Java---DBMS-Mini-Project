@@ -137,7 +137,7 @@ CREATE TABLE rental (
       (actual_return_datetime IS NOT NULL AND odometer_in IS NOT NULL AND charges IS NOT NULL)),
   CONSTRAINT ck_rental_odometer_in CHECK (odometer_in IS NULL OR odometer_in >= odometer_out),
   CONSTRAINT ck_rental_actual_return
-    CHECK (actual_return_datetime IS NULL OR actual_return_datetime >= actual_pickup_datetime),
+    CHECK (actual_return_datetime IS NULL OR actual_return_datetime > actual_pickup_datetime),
   CONSTRAINT fk_rental_customer FOREIGN KEY (customer_id) REFERENCES customer (customer_id),
   CONSTRAINT fk_rental_vehicle FOREIGN KEY (vehicle_id) REFERENCES vehicle (vehicle_id),
   CONSTRAINT fk_rental_driver FOREIGN KEY (driver_id) REFERENCES driver (driver_id),

@@ -37,22 +37,22 @@ INSERT INTO customer
  (22,'Corporate','Dev','Fernandes','accounts@horizon.example.com','9000000022','Lower Parel','Mumbai','400013');
 
 INSERT INTO individual_customer (customer_id,date_of_birth,license_no,license_expiry) VALUES
- (1,'1992-04-11','MH-LIC-IND-0001',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (2,'1990-08-21','MH-LIC-IND-0002',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (3,'1988-01-17','MH-LIC-IND-0003',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (4,'1995-10-03','MH-LIC-IND-0004',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (5,'1987-06-14','MH-LIC-IND-0005',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (6,'1993-12-09','MH-LIC-IND-0006',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (7,'1989-03-28','MH-LIC-IND-0007',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (8,'1991-07-05','MH-LIC-IND-0008',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (9,'1986-11-19','MH-LIC-IND-0009',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (10,'1994-02-25','MH-LIC-IND-0010',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (11,'1985-05-16','MH-LIC-IND-0011',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (12,'1996-09-30','MH-LIC-IND-0012',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (13,'1984-12-01','MH-LIC-IND-0013',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (14,'1992-03-07','MH-LIC-IND-0014',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (15,'1983-07-22','MH-LIC-IND-0015',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
- (16,'1981-01-12','MH-LIC-IND-0016',DATE_SUB(CURDATE(),INTERVAL 30 DAY));
+ (1,DATE_SUB(CURDATE(),INTERVAL 34 YEAR),'MH-LIC-IND-0001',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (2,DATE_SUB(CURDATE(),INTERVAL 36 YEAR),'MH-LIC-IND-0002',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (3,DATE_SUB(CURDATE(),INTERVAL 38 YEAR),'MH-LIC-IND-0003',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (4,DATE_SUB(CURDATE(),INTERVAL 31 YEAR),'MH-LIC-IND-0004',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (5,DATE_SUB(CURDATE(),INTERVAL 39 YEAR),'MH-LIC-IND-0005',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (6,DATE_SUB(CURDATE(),INTERVAL 33 YEAR),'MH-LIC-IND-0006',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (7,DATE_SUB(CURDATE(),INTERVAL 37 YEAR),'MH-LIC-IND-0007',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (8,DATE_SUB(CURDATE(),INTERVAL 35 YEAR),'MH-LIC-IND-0008',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (9,DATE_SUB(CURDATE(),INTERVAL 40 YEAR),'MH-LIC-IND-0009',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (10,DATE_SUB(CURDATE(),INTERVAL 32 YEAR),'MH-LIC-IND-0010',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (11,DATE_SUB(CURDATE(),INTERVAL 41 YEAR),'MH-LIC-IND-0011',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (12,DATE_SUB(CURDATE(),INTERVAL 30 YEAR),'MH-LIC-IND-0012',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (13,DATE_SUB(CURDATE(),INTERVAL 42 YEAR),'MH-LIC-IND-0013',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (14,DATE_SUB(CURDATE(),INTERVAL 34 YEAR),'MH-LIC-IND-0014',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (15,DATE_SUB(CURDATE(),INTERVAL 43 YEAR),'MH-LIC-IND-0015',DATE_ADD(CURDATE(),INTERVAL 730 DAY)),
+ (16,DATE_SUB(CURDATE(),INTERVAL 45 YEAR),'MH-LIC-IND-0016',DATE_SUB(CURDATE(),INTERVAL 30 DAY));
 INSERT INTO corporate_customer (customer_id,company_name,gst_no) VALUES
  (17,'Weststar Technologies','27ABCDE1234F1Z5'),
  (18,'Bluepeak Finance','27BCDEF2345G1Z6'),
@@ -260,6 +260,35 @@ FROM (
         CONCAT('maintenance:',a.maintenance_id),CONCAT('maintenance:',b.maintenance_id)
  FROM maintenance a JOIN maintenance b ON b.vehicle_id=a.vehicle_id AND b.maintenance_id>a.maintenance_id
  WHERE a.status='In Progress' AND b.status='In Progress'
+ UNION ALL
+ SELECT 'CORPORATE_RENTAL_WITHOUT_ACTIVE_CHAUFFEUR',r.vehicle_id,
+        CONCAT('rental:',r.rental_id),
+        CASE WHEN r.driver_id IS NULL THEN 'missing driver'
+             ELSE CONCAT('driver:',r.driver_id,':',d.status) END
+ FROM rental r
+ JOIN customer c ON c.customer_id=r.customer_id
+ LEFT JOIN driver d ON d.driver_id=r.driver_id
+ WHERE c.customer_type='Corporate'
+   AND (r.driver_id IS NULL OR d.status<>'Active')
+ UNION ALL
+ SELECT 'INDIVIDUAL_LICENSE_EXPIRES_BEFORE_RENTAL_END',r.vehicle_id,
+        CONCAT('rental:',r.rental_id),CONCAT('license_expiry:',i.license_expiry)
+ FROM rental r
+ JOIN customer c ON c.customer_id=r.customer_id
+ JOIN individual_customer i ON i.customer_id=c.customer_id
+ WHERE r.status IN ('Confirmed','Active','Completed')
+   AND i.license_expiry < DATE(
+     CASE WHEN r.status='Completed' THEN r.actual_return_datetime
+          ELSE r.expected_return_datetime END
+   )
+ UNION ALL
+ SELECT 'INDIVIDUAL_LICENSE_EXPIRES_BEFORE_LEASE_END',l.vehicle_id,
+        CONCAT('lease:',l.lease_id),CONCAT('license_expiry:',i.license_expiry)
+ FROM lease l
+ JOIN customer c ON c.customer_id=l.customer_id
+ JOIN individual_customer i ON i.customer_id=c.customer_id
+ WHERE l.status IN ('Scheduled','Active','Completed')
+   AND i.license_expiry < l.end_date
  UNION ALL
  SELECT 'CUSTOMER_SUBTYPE_MISMATCH',NULL,CONCAT('customer:',c.customer_id),c.customer_type
  FROM customer c

@@ -47,6 +47,17 @@ VALUES (1,22,DATE_SUB(NOW(),INTERVAL 2 DAY),NOW(),
         10000,10100,16000.00,NULL,'Completed');
 ROLLBACK;
 
+-- Actual return time must be strictly later than pickup.
+START TRANSACTION;
+INSERT INTO rental
+ (customer_id,vehicle_id,scheduled_start_datetime,expected_return_datetime,
+  actual_pickup_datetime,actual_return_datetime,odometer_out,odometer_in,
+  daily_rate_applied,charges,status)
+VALUES (1,22,DATE_SUB(NOW(),INTERVAL 2 DAY),NOW(),
+        DATE_SUB(NOW(),INTERVAL 1 DAY),DATE_SUB(NOW(),INTERVAL 1 DAY),
+        10000,10100,16000.00,16000.00,'Completed');
+ROLLBACK;
+
 -- Customer foreign key must exist.
 START TRANSACTION;
 INSERT INTO rental
