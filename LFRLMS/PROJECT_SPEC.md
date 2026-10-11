@@ -28,7 +28,7 @@ It is a 2nd-year student project. It must be **correct, readable and explainable
 ## 3. Hard technical constraints
 
 - Java 17, **Swing only** (no JavaFX).
-- JDBC with the MySQL Connector/J 8.x jar placed in `lib/`. MySQL 8.0.16 or newer (CHECK constraints must be enforced).
+- JDBC with the MySQL Connector/J jar placed in `lib/` (use a current release: 8.x, 9.x or the year-numbered 26.x line; this project uses 26.7.0, and 9.7.0 or 8.4.0 are drop-in fallbacks if a driver problem appears). MySQL 8.0.16 or newer (CHECK constraints must be enforced).
 - **No** Maven/Gradle, Spring, Hibernate/JPA, Lombok or any ORM. Optional: a FlatLaf jar in `lib/` for a modern look; if it is missing, fall back to the system look and feel.
 - JDBC URL: `jdbc:mysql://localhost:3306/lfrlms?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata`
 - Credentials are read from `config/db.properties` using `java.util.Properties`. Provide `config/db.properties.example` and add the real file to `.gitignore`.
@@ -59,7 +59,7 @@ It is a 2nd-year student project. It must be **correct, readable and explainable
 
 ```
 LFRLMS/
-├─ lib/                    mysql-connector-j-8.x.jar (and optional flatlaf jar)
+├─ lib/                    mysql-connector-j-<version>.jar (and optional flatlaf jar)
 ├─ config/                 db.properties.example
 ├─ sql/                    01_schema.sql  02_functions_procedures.sql  03_views.sql
 │                          04_triggers.sql  05_seed.sql  06_demo_queries.sql
