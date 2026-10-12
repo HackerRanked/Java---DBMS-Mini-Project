@@ -41,6 +41,15 @@ public class PaymentDao extends AbstractDao {
                 payment.getStatus());
     }
 
+    public int insert(java.sql.Connection connection, Payment payment)
+            throws LfrlmsException {
+        String sql = "INSERT INTO payment (rental_id, lease_id, amount, method, "
+                + "payment_date, status) VALUES (?, ?, ?, ?, ?, ?)";
+        return executeInsert(connection, sql, payment.getRentalId(), payment.getLeaseId(),
+                payment.getAmount(), payment.getMethod(), payment.getPaymentDate(),
+                payment.getStatus());
+    }
+
     public Payment findById(int paymentId) throws LfrlmsException {
         String sql = "SELECT " + PAYMENT_COLUMNS + "FROM payment p WHERE p.payment_id = ?";
         return toPayment(firstRow(queryRows(sql, Integer.valueOf(paymentId))));
@@ -91,8 +100,23 @@ public class PaymentDao extends AbstractDao {
                 payment.getStatus(), Integer.valueOf(payment.getPaymentId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, Payment payment)
+            throws LfrlmsException {
+        String sql = "UPDATE payment SET rental_id = ?, lease_id = ?, amount = ?, method = ?, "
+                + "payment_date = ?, status = ? WHERE payment_id = ?";
+        return executeUpdate(connection, sql, payment.getRentalId(), payment.getLeaseId(),
+                payment.getAmount(), payment.getMethod(), payment.getPaymentDate(),
+                payment.getStatus(), Integer.valueOf(payment.getPaymentId())) > 0;
+    }
+
     public boolean delete(int paymentId) throws LfrlmsException {
         return executeUpdate("DELETE FROM payment WHERE payment_id = ?",
+                Integer.valueOf(paymentId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int paymentId)
+            throws LfrlmsException {
+        return executeUpdate(connection, "DELETE FROM payment WHERE payment_id = ?",
                 Integer.valueOf(paymentId)) > 0;
     }
 

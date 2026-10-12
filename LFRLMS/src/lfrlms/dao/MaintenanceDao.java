@@ -40,6 +40,18 @@ public class MaintenanceDao extends AbstractDao {
                 maintenance.getStatus());
     }
 
+    public int insert(java.sql.Connection connection, Maintenance maintenance)
+            throws LfrlmsException {
+        String sql = "INSERT INTO maintenance (vehicle_id, service_date, service_type, "
+                + "description, cost, next_service_date, completed_date, status) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        return executeInsert(connection, sql, Integer.valueOf(maintenance.getVehicleId()),
+                maintenance.getServiceDate(), maintenance.getServiceType(),
+                maintenance.getDescription(), maintenance.getCost(),
+                maintenance.getNextServiceDate(), maintenance.getCompletedDate(),
+                maintenance.getStatus());
+    }
+
     public Maintenance findById(int maintenanceId) throws LfrlmsException {
         String sql = "SELECT " + MAINTENANCE_COLUMNS + "FROM maintenance m "
                 + "WHERE m.maintenance_id = ?";
@@ -91,8 +103,27 @@ public class MaintenanceDao extends AbstractDao {
                 maintenance.getStatus(), Integer.valueOf(maintenance.getMaintenanceId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, Maintenance maintenance)
+            throws LfrlmsException {
+        String sql = "UPDATE maintenance SET vehicle_id = ?, service_date = ?, "
+                + "service_type = ?, description = ?, cost = ?, next_service_date = ?, "
+                + "completed_date = ?, status = ? WHERE maintenance_id = ?";
+        return executeUpdate(connection, sql, Integer.valueOf(maintenance.getVehicleId()),
+                maintenance.getServiceDate(), maintenance.getServiceType(),
+                maintenance.getDescription(), maintenance.getCost(),
+                maintenance.getNextServiceDate(), maintenance.getCompletedDate(),
+                maintenance.getStatus(), Integer.valueOf(maintenance.getMaintenanceId())) > 0;
+    }
+
     public boolean delete(int maintenanceId) throws LfrlmsException {
         return executeUpdate("DELETE FROM maintenance WHERE maintenance_id = ?",
+                Integer.valueOf(maintenanceId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int maintenanceId)
+            throws LfrlmsException {
+        return executeUpdate(connection,
+                "DELETE FROM maintenance WHERE maintenance_id = ?",
                 Integer.valueOf(maintenanceId)) > 0;
     }
 

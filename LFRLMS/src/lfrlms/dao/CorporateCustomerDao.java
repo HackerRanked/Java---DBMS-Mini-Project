@@ -34,6 +34,14 @@ public class CorporateCustomerDao extends AbstractDao {
                 customer.getCompanyName(), customer.getGstNo()) > 0;
     }
 
+    public boolean insert(java.sql.Connection connection, CorporateCustomer customer)
+            throws LfrlmsException {
+        String sql = "INSERT INTO corporate_customer (customer_id, company_name, gst_no) "
+                + "VALUES (?, ?, ?)";
+        return executeUpdate(connection, sql, Integer.valueOf(customer.getCustomerId()),
+                customer.getCompanyName(), customer.getGstNo()) > 0;
+    }
+
     public CorporateCustomer findById(int customerId) throws LfrlmsException {
         return toCorporate(firstRow(queryRows(SELECT_SQL + "WHERE co.customer_id = ?",
                 Integer.valueOf(customerId))));
@@ -64,8 +72,23 @@ public class CorporateCustomerDao extends AbstractDao {
                 Integer.valueOf(customer.getCustomerId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, CorporateCustomer customer)
+            throws LfrlmsException {
+        String sql = "UPDATE corporate_customer SET company_name = ?, gst_no = ? "
+                + "WHERE customer_id = ?";
+        return executeUpdate(connection, sql, customer.getCompanyName(), customer.getGstNo(),
+                Integer.valueOf(customer.getCustomerId())) > 0;
+    }
+
     public boolean delete(int customerId) throws LfrlmsException {
         return executeUpdate("DELETE FROM corporate_customer WHERE customer_id = ?",
+                Integer.valueOf(customerId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int customerId)
+            throws LfrlmsException {
+        return executeUpdate(connection,
+                "DELETE FROM corporate_customer WHERE customer_id = ?",
                 Integer.valueOf(customerId)) > 0;
     }
 

@@ -39,6 +39,15 @@ public class LeaseDao extends AbstractDao {
                 lease.getMonthlyCharge(), lease.getDeposit(), lease.getStatus());
     }
 
+    public int insert(java.sql.Connection connection, Lease lease)
+            throws LfrlmsException {
+        String sql = "INSERT INTO lease (customer_id, vehicle_id, start_date, end_date, "
+                + "monthly_charge, deposit, status) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        return executeInsert(connection, sql, Integer.valueOf(lease.getCustomerId()),
+                Integer.valueOf(lease.getVehicleId()), lease.getStartDate(), lease.getEndDate(),
+                lease.getMonthlyCharge(), lease.getDeposit(), lease.getStatus());
+    }
+
     public Lease findById(int leaseId) throws LfrlmsException {
         String sql = "SELECT " + LEASE_COLUMNS + "FROM lease l WHERE l.lease_id = ?";
         return toLease(firstRow(queryRows(sql, Integer.valueOf(leaseId))));
@@ -89,8 +98,25 @@ public class LeaseDao extends AbstractDao {
                 Integer.valueOf(lease.getLeaseId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, Lease lease)
+            throws LfrlmsException {
+        String sql = "UPDATE lease SET customer_id = ?, vehicle_id = ?, start_date = ?, "
+                + "end_date = ?, monthly_charge = ?, deposit = ?, status = ? "
+                + "WHERE lease_id = ?";
+        return executeUpdate(connection, sql, Integer.valueOf(lease.getCustomerId()),
+                Integer.valueOf(lease.getVehicleId()), lease.getStartDate(), lease.getEndDate(),
+                lease.getMonthlyCharge(), lease.getDeposit(), lease.getStatus(),
+                Integer.valueOf(lease.getLeaseId())) > 0;
+    }
+
     public boolean delete(int leaseId) throws LfrlmsException {
         return executeUpdate("DELETE FROM lease WHERE lease_id = ?",
+                Integer.valueOf(leaseId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int leaseId)
+            throws LfrlmsException {
+        return executeUpdate(connection, "DELETE FROM lease WHERE lease_id = ?",
                 Integer.valueOf(leaseId)) > 0;
     }
 

@@ -48,6 +48,22 @@ public class RentalDao extends AbstractDao {
                 rental.getStatus());
     }
 
+    public int insert(java.sql.Connection connection, Rental rental)
+            throws LfrlmsException {
+        String sql = "INSERT INTO rental (customer_id, vehicle_id, driver_id, "
+                + "scheduled_start_datetime, expected_return_datetime, actual_pickup_datetime, "
+                + "actual_return_datetime, odometer_out, odometer_in, condition_out, "
+                + "condition_in, daily_rate_applied, charges, status) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        return executeInsert(connection, sql, Integer.valueOf(rental.getCustomerId()),
+                Integer.valueOf(rental.getVehicleId()), rental.getDriverId(),
+                rental.getScheduledStartDatetime(), rental.getExpectedReturnDatetime(),
+                rental.getActualPickupDatetime(), rental.getActualReturnDatetime(),
+                rental.getOdometerOut(), rental.getOdometerIn(), rental.getConditionOut(),
+                rental.getConditionIn(), rental.getDailyRateApplied(), rental.getCharges(),
+                rental.getStatus());
+    }
+
     public Rental findById(int rentalId) throws LfrlmsException {
         String sql = "SELECT " + RENTAL_COLUMNS + "FROM rental r WHERE r.rental_id = ?";
         return toRental(firstRow(queryRows(sql, Integer.valueOf(rentalId))));
@@ -105,8 +121,30 @@ public class RentalDao extends AbstractDao {
                 rental.getStatus(), Integer.valueOf(rental.getRentalId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, Rental rental)
+            throws LfrlmsException {
+        String sql = "UPDATE rental SET customer_id = ?, vehicle_id = ?, driver_id = ?, "
+                + "scheduled_start_datetime = ?, expected_return_datetime = ?, "
+                + "actual_pickup_datetime = ?, actual_return_datetime = ?, odometer_out = ?, "
+                + "odometer_in = ?, condition_out = ?, condition_in = ?, "
+                + "daily_rate_applied = ?, charges = ?, status = ? WHERE rental_id = ?";
+        return executeUpdate(connection, sql, Integer.valueOf(rental.getCustomerId()),
+                Integer.valueOf(rental.getVehicleId()), rental.getDriverId(),
+                rental.getScheduledStartDatetime(), rental.getExpectedReturnDatetime(),
+                rental.getActualPickupDatetime(), rental.getActualReturnDatetime(),
+                rental.getOdometerOut(), rental.getOdometerIn(), rental.getConditionOut(),
+                rental.getConditionIn(), rental.getDailyRateApplied(), rental.getCharges(),
+                rental.getStatus(), Integer.valueOf(rental.getRentalId())) > 0;
+    }
+
     public boolean delete(int rentalId) throws LfrlmsException {
         return executeUpdate("DELETE FROM rental WHERE rental_id = ?",
+                Integer.valueOf(rentalId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int rentalId)
+            throws LfrlmsException {
+        return executeUpdate(connection, "DELETE FROM rental WHERE rental_id = ?",
                 Integer.valueOf(rentalId)) > 0;
     }
 

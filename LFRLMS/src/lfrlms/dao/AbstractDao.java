@@ -55,6 +55,23 @@ public abstract class AbstractDao {
         }
     }
 
+    /** Executes a query on a caller-owned connection without closing that connection. */
+    protected ArrayList<HashMap<String, Object>> queryRows(Connection connection,
+            String sql, Object... parameters) throws LfrlmsException {
+        long started = System.nanoTime();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindParameters(statement, parameters, 1);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                ArrayList<HashMap<String, Object>> rows = readRows(resultSet);
+                recordQuery(sql, parameters, started, rows.size());
+                return rows;
+            }
+        } catch (SQLException exception) {
+            recordQuery(sql, parameters, started, -1);
+            throw translate(exception, "read database records");
+        }
+    }
+
     protected ArrayList<HashMap<String, Object>> callRows(String sql,
             Object... parameters) throws LfrlmsException {
         long started = System.nanoTime();
@@ -111,6 +128,21 @@ public abstract class AbstractDao {
         }
     }
 
+    /** Executes a write on a caller-owned connection without closing that connection. */
+    protected int executeUpdate(Connection connection, String sql, Object... parameters)
+            throws LfrlmsException {
+        long started = System.nanoTime();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindParameters(statement, parameters, 1);
+            int rows = statement.executeUpdate();
+            recordQuery(sql, parameters, started, rows);
+            return rows;
+        } catch (SQLException exception) {
+            recordQuery(sql, parameters, started, -1);
+            throw translate(exception, "update database records");
+        }
+    }
+
     protected int executeInsert(String sql, Object... parameters)
             throws LfrlmsException {
         long started = System.nanoTime();
@@ -133,9 +165,41 @@ public abstract class AbstractDao {
         }
     }
 
+    /** Inserts on a caller-owned connection without closing that connection. */
+    protected int executeInsert(Connection connection, String sql, Object... parameters)
+            throws LfrlmsException {
+        long started = System.nanoTime();
+        try (PreparedStatement statement = connection.prepareStatement(
+                sql, Statement.RETURN_GENERATED_KEYS)) {
+            bindParameters(statement, parameters, 1);
+            int rows = statement.executeUpdate();
+            int generatedId = 0;
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                if (keys.next()) {
+                    generatedId = keys.getInt(1);
+                }
+            }
+            recordQuery(sql, parameters, started, rows);
+            return generatedId;
+        } catch (SQLException exception) {
+            recordQuery(sql, parameters, started, -1);
+            throw translate(exception, "insert a database record");
+        }
+    }
+
     protected long queryCount(String sql, Object... parameters)
             throws LfrlmsException {
         ArrayList<HashMap<String, Object>> rows = queryRows(sql, parameters);
+        if (rows.isEmpty()) {
+            return 0L;
+        }
+        Object value = rows.get(0).values().iterator().next();
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
+
+    protected long queryCount(Connection connection, String sql, Object... parameters)
+            throws LfrlmsException {
+        ArrayList<HashMap<String, Object>> rows = queryRows(connection, sql, parameters);
         if (rows.isEmpty()) {
             return 0L;
         }
@@ -202,11 +266,17 @@ public abstract class AbstractDao {
 
     protected LocalDate dateValue(Map<String, Object> row, String column) {
         Object value = row.get(column);
+        if (value instanceof LocalDate) {
+            return (LocalDate) value;
+        }
         return value instanceof Date ? ((Date) value).toLocalDate() : null;
     }
 
     protected LocalDateTime dateTimeValue(Map<String, Object> row, String column) {
         Object value = row.get(column);
+        if (value instanceof LocalDateTime) {
+            return (LocalDateTime) value;
+        }
         return value instanceof Timestamp ? ((Timestamp) value).toLocalDateTime() : null;
     }
 

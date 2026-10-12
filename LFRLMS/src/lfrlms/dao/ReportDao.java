@@ -15,6 +15,27 @@ import lfrlms.util.QueryLog;
  * Concept: JDBC reports, callable statements, aggregation and TreeMap.
  */
 public class ReportDao extends AbstractDao {
+    private static final String ACTIVE_RENTALS_FROM = "FROM rental r "
+            + "JOIN customer c ON c.customer_id = r.customer_id "
+            + "JOIN vehicle v ON v.vehicle_id = r.vehicle_id WHERE r.status = ? ";
+    private static final String ACTIVE_LEASES_FROM = "FROM lease l "
+            + "JOIN customer c ON c.customer_id = l.customer_id "
+            + "JOIN vehicle v ON v.vehicle_id = l.vehicle_id WHERE l.status = ? ";
+    private static final String CUSTOMER_HISTORY_ROWS =
+            "SELECT 'Rental' AS transaction_type, r.rental_id AS reference_id, "
+            + "r.scheduled_start_datetime AS transaction_date, v.registration_no, "
+            + "r.status, r.charges AS amount FROM rental r "
+            + "JOIN vehicle v ON v.vehicle_id = r.vehicle_id WHERE r.customer_id = ? "
+            + "UNION ALL SELECT 'Lease', l.lease_id, CAST(l.start_date AS DATETIME), "
+            + "v.registration_no, l.status, l.monthly_charge FROM lease l "
+            + "JOIN vehicle v ON v.vehicle_id = l.vehicle_id WHERE l.customer_id = ? "
+            + "UNION ALL SELECT 'Payment', p.payment_id, p.payment_date, "
+            + "COALESCE(v.registration_no, ''), p.status, p.amount FROM payment p "
+            + "LEFT JOIN rental r ON r.rental_id = p.rental_id "
+            + "LEFT JOIN lease l ON l.lease_id = p.lease_id "
+            + "LEFT JOIN vehicle v ON v.vehicle_id = COALESCE(r.vehicle_id, l.vehicle_id) "
+            + "WHERE COALESCE(r.customer_id, l.customer_id) = ?";
+
     public ReportDao() {
         super();
     }
@@ -35,22 +56,26 @@ public class ReportDao extends AbstractDao {
         String sql = "SELECT r.rental_id, c.customer_id, c.first_name, c.last_name, "
                 + "v.vehicle_id, v.registration_no, v.model, r.scheduled_start_datetime, "
                 + "r.expected_return_datetime, r.actual_pickup_datetime, r.status "
-                + "FROM rental r JOIN customer c ON c.customer_id = r.customer_id "
-                + "JOIN vehicle v ON v.vehicle_id = r.vehicle_id "
-                + "WHERE r.status = ? ORDER BY r.scheduled_start_datetime DESC "
+                + ACTIVE_RENTALS_FROM + "ORDER BY r.scheduled_start_datetime DESC "
                 + "LIMIT ? OFFSET ?";
         return queryRows(sql, "Active", safePageSize(pageSize), pageOffset(pageNumber, pageSize));
+    }
+
+    public long countActiveRentals() throws LfrlmsException {
+        return queryCount("SELECT COUNT(*) AS row_count " + ACTIVE_RENTALS_FROM, "Active");
     }
 
     public ArrayList<HashMap<String, Object>> activeLeases(int pageNumber,
             int pageSize) throws LfrlmsException {
         String sql = "SELECT l.lease_id, c.customer_id, c.first_name, c.last_name, "
                 + "v.vehicle_id, v.registration_no, v.model, l.start_date, l.end_date, "
-                + "l.monthly_charge, l.deposit, l.status FROM lease l "
-                + "JOIN customer c ON c.customer_id = l.customer_id "
-                + "JOIN vehicle v ON v.vehicle_id = l.vehicle_id "
-                + "WHERE l.status = ? ORDER BY l.end_date, l.lease_id LIMIT ? OFFSET ?";
+                + "l.monthly_charge, l.deposit, l.status " + ACTIVE_LEASES_FROM
+                + "ORDER BY l.end_date, l.lease_id LIMIT ? OFFSET ?";
         return queryRows(sql, "Active", safePageSize(pageSize), pageOffset(pageNumber, pageSize));
+    }
+
+    public long countActiveLeases() throws LfrlmsException {
+        return queryCount("SELECT COUNT(*) AS row_count " + ACTIVE_LEASES_FROM, "Active");
     }
 
     public TreeMap<String, BigDecimal> revenueByMonth(LocalDate from, LocalDate to)
@@ -84,6 +109,10 @@ public class ReportDao extends AbstractDao {
         return balances;
     }
 
+    public long countOutstandingBalances() throws LfrlmsException {
+        return queryCount("SELECT COUNT(*) AS row_count FROM customer");
+    }
+
     public ArrayList<HashMap<String, Object>> mostRentedVehicles(int limit)
             throws LfrlmsException {
         String sql = "SELECT v.vehicle_id, v.registration_no, b.brand_name, v.model, "
@@ -107,27 +136,28 @@ public class ReportDao extends AbstractDao {
                 pageOffset(pageNumber, pageSize));
     }
 
+    public long countMaintenanceDue(LocalDate throughDate) throws LfrlmsException {
+        String sql = "SELECT COUNT(*) AS row_count FROM maintenance m "
+                + "JOIN vehicle v ON v.vehicle_id = m.vehicle_id "
+                + "WHERE m.next_service_date IS NOT NULL AND m.next_service_date <= ?";
+        return queryCount(sql, throughDate);
+    }
+
     public ArrayList<HashMap<String, Object>> customerTransactionHistory(int customerId,
             int pageNumber, int pageSize) throws LfrlmsException {
-        String sql = "SELECT * FROM ("
-                + "SELECT 'Rental' AS transaction_type, r.rental_id AS reference_id, "
-                + "r.scheduled_start_datetime AS transaction_date, v.registration_no, "
-                + "r.status, r.charges AS amount FROM rental r "
-                + "JOIN vehicle v ON v.vehicle_id = r.vehicle_id WHERE r.customer_id = ? "
-                + "UNION ALL SELECT 'Lease', l.lease_id, CAST(l.start_date AS DATETIME), "
-                + "v.registration_no, l.status, l.monthly_charge FROM lease l "
-                + "JOIN vehicle v ON v.vehicle_id = l.vehicle_id WHERE l.customer_id = ? "
-                + "UNION ALL SELECT 'Payment', p.payment_id, p.payment_date, "
-                + "COALESCE(v.registration_no, ''), p.status, p.amount FROM payment p "
-                + "LEFT JOIN rental r ON r.rental_id = p.rental_id "
-                + "LEFT JOIN lease l ON l.lease_id = p.lease_id "
-                + "LEFT JOIN vehicle v ON v.vehicle_id = COALESCE(r.vehicle_id, l.vehicle_id) "
-                + "WHERE COALESCE(r.customer_id, l.customer_id) = ?"
+        String sql = "SELECT * FROM (" + CUSTOMER_HISTORY_ROWS
                 + ") history ORDER BY transaction_date DESC, transaction_type "
                 + "LIMIT ? OFFSET ?";
         return queryRows(sql, Integer.valueOf(customerId), Integer.valueOf(customerId),
                 Integer.valueOf(customerId), Integer.valueOf(safePageSize(pageSize)),
                 Long.valueOf(pageOffset(pageNumber, pageSize)));
+    }
+
+    public long countCustomerTransactionHistory(int customerId) throws LfrlmsException {
+        String sql = "SELECT COUNT(*) AS row_count FROM (" + CUSTOMER_HISTORY_ROWS
+                + ") history";
+        return queryCount(sql, Integer.valueOf(customerId), Integer.valueOf(customerId),
+                Integer.valueOf(customerId));
     }
 
     public ArrayList<HashMap<String, Object>> rentalStatusSummary()

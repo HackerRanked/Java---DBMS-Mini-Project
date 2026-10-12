@@ -42,6 +42,16 @@ public class CustomerDao extends AbstractDao {
                 customer.getStreet(), customer.getCity(), customer.getPincode());
     }
 
+    public int insert(java.sql.Connection connection, Customer customer)
+            throws LfrlmsException {
+        String sql = "INSERT INTO customer (customer_type, first_name, last_name, email, "
+                + "phone, street, city, pincode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        return executeInsert(connection, sql, customer.getCustomerType(),
+                customer.getFirstName(), customer.getLastName(), customer.getEmail(),
+                customer.getPhone(), customer.getStreet(), customer.getCity(),
+                customer.getPincode());
+    }
+
     public Customer findById(int customerId) throws LfrlmsException {
         String sql = CUSTOMER_SELECT + "WHERE c.customer_id = ?";
         return toCustomer(firstRow(queryRows(sql, Integer.valueOf(customerId))));
@@ -93,8 +103,25 @@ public class CustomerDao extends AbstractDao {
                 Integer.valueOf(customer.getCustomerId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, Customer customer)
+            throws LfrlmsException {
+        String sql = "UPDATE customer SET customer_type = ?, first_name = ?, last_name = ?, "
+                + "email = ?, phone = ?, street = ?, city = ?, pincode = ? "
+                + "WHERE customer_id = ?";
+        return executeUpdate(connection, sql, customer.getCustomerType(),
+                customer.getFirstName(), customer.getLastName(), customer.getEmail(),
+                customer.getPhone(), customer.getStreet(), customer.getCity(),
+                customer.getPincode(), Integer.valueOf(customer.getCustomerId())) > 0;
+    }
+
     public boolean delete(int customerId) throws LfrlmsException {
         return executeUpdate("DELETE FROM customer WHERE customer_id = ?",
+                Integer.valueOf(customerId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int customerId)
+            throws LfrlmsException {
+        return executeUpdate(connection, "DELETE FROM customer WHERE customer_id = ?",
                 Integer.valueOf(customerId)) > 0;
     }
 

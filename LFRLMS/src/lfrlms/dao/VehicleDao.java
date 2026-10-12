@@ -40,6 +40,18 @@ public class VehicleDao extends AbstractDao {
                 vehicle.getLeaseRate(), vehicle.getStatus());
     }
 
+    public int insert(java.sql.Connection connection, Vehicle vehicle)
+            throws LfrlmsException {
+        String sql = "INSERT INTO vehicle (registration_no, brand_id, category_id, branch_id, "
+                + "model, model_year, rental_rate, lease_rate, status) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        return executeInsert(connection, sql, vehicle.getRegistrationNo(),
+                Integer.valueOf(vehicle.getBrandId()), Integer.valueOf(vehicle.getCategoryId()),
+                Integer.valueOf(vehicle.getBranchId()), vehicle.getModel(),
+                Integer.valueOf(vehicle.getModelYear()), vehicle.getRentalRate(),
+                vehicle.getLeaseRate(), vehicle.getStatus());
+    }
+
     public Vehicle findById(int vehicleId) throws LfrlmsException {
         String sql = "SELECT vehicle_id, registration_no, brand_id, category_id, branch_id, "
                 + "model, model_year, rental_rate, lease_rate, status, created_at, updated_at "
@@ -118,9 +130,36 @@ public class VehicleDao extends AbstractDao {
                 Integer.valueOf(vehicle.getVehicleId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, Vehicle vehicle)
+            throws LfrlmsException {
+        String sql = "UPDATE vehicle SET registration_no = ?, brand_id = ?, category_id = ?, "
+                + "branch_id = ?, model = ?, model_year = ?, rental_rate = ?, lease_rate = ?, "
+                + "status = ? WHERE vehicle_id = ?";
+        return executeUpdate(connection, sql, vehicle.getRegistrationNo(),
+                Integer.valueOf(vehicle.getBrandId()), Integer.valueOf(vehicle.getCategoryId()),
+                Integer.valueOf(vehicle.getBranchId()), vehicle.getModel(),
+                Integer.valueOf(vehicle.getModelYear()), vehicle.getRentalRate(),
+                vehicle.getLeaseRate(), vehicle.getStatus(),
+                Integer.valueOf(vehicle.getVehicleId())) > 0;
+    }
+
     public boolean delete(int vehicleId) throws LfrlmsException {
         return executeUpdate("DELETE FROM vehicle WHERE vehicle_id = ?",
                 Integer.valueOf(vehicleId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int vehicleId)
+            throws LfrlmsException {
+        return executeUpdate(connection, "DELETE FROM vehicle WHERE vehicle_id = ?",
+                Integer.valueOf(vehicleId)) > 0;
+    }
+
+    public Vehicle lockByIdForUpdate(java.sql.Connection connection, int vehicleId)
+            throws LfrlmsException {
+        String sql = "SELECT vehicle_id, registration_no, brand_id, category_id, branch_id, "
+                + "model, model_year, rental_rate, lease_rate, status, created_at, updated_at "
+                + "FROM vehicle WHERE vehicle_id = ? FOR UPDATE";
+        return toVehicle(firstRow(queryRows(connection, sql, Integer.valueOf(vehicleId))));
     }
 
     private void appendVehicleFilters(QueryBuilder query, String text,

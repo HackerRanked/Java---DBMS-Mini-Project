@@ -35,6 +35,16 @@ public class IndividualCustomerDao extends AbstractDao {
                 customer.getLicenseExpiry()) > 0;
     }
 
+    public boolean insert(java.sql.Connection connection, IndividualCustomer customer)
+            throws LfrlmsException {
+        String sql = "INSERT INTO individual_customer "
+                + "(customer_id, date_of_birth, license_no, license_expiry) "
+                + "VALUES (?, ?, ?, ?)";
+        return executeUpdate(connection, sql, Integer.valueOf(customer.getCustomerId()),
+                customer.getDateOfBirth(), customer.getLicenseNo(),
+                customer.getLicenseExpiry()) > 0;
+    }
+
     public IndividualCustomer findById(int customerId) throws LfrlmsException {
         return toIndividual(firstRow(queryRows(SELECT_SQL + "WHERE i.customer_id = ?",
                 Integer.valueOf(customerId))));
@@ -65,8 +75,24 @@ public class IndividualCustomerDao extends AbstractDao {
                 customer.getLicenseExpiry(), Integer.valueOf(customer.getCustomerId())) > 0;
     }
 
+    public boolean update(java.sql.Connection connection, IndividualCustomer customer)
+            throws LfrlmsException {
+        String sql = "UPDATE individual_customer SET date_of_birth = ?, license_no = ?, "
+                + "license_expiry = ? WHERE customer_id = ?";
+        return executeUpdate(connection, sql, customer.getDateOfBirth(),
+                customer.getLicenseNo(), customer.getLicenseExpiry(),
+                Integer.valueOf(customer.getCustomerId())) > 0;
+    }
+
     public boolean delete(int customerId) throws LfrlmsException {
         return executeUpdate("DELETE FROM individual_customer WHERE customer_id = ?",
+                Integer.valueOf(customerId)) > 0;
+    }
+
+    public boolean delete(java.sql.Connection connection, int customerId)
+            throws LfrlmsException {
+        return executeUpdate(connection,
+                "DELETE FROM individual_customer WHERE customer_id = ?",
                 Integer.valueOf(customerId)) > 0;
     }
 

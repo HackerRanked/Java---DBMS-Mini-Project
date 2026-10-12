@@ -1,8 +1,10 @@
 package lfrlms;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import lfrlms.dao.BrandDao;
 import lfrlms.dao.ReportDao;
 import lfrlms.dao.VehicleDao;
@@ -19,6 +21,7 @@ import lfrlms.util.QueryLog;
  * Concept: JDBC smoke checks, checked exceptions and anonymous classes.
  */
 public class DaoSmokeTest {
+    private static final int REPORT_PAGE_SIZE = 100;
     private static final QueryLog QUERY_LOG = new QueryLog();
     private static final BrandDao BRAND_DAO = new BrandDao(QUERY_LOG);
     private static final VehicleDao VEHICLE_DAO = new VehicleDao(QUERY_LOG);
@@ -33,6 +36,7 @@ public class DaoSmokeTest {
         testReferencedBrandOutput();
         testAvailabilityProcedure();
         testOutstandingFunction();
+        testReportPageCounts();
         testQueryLogOutput();
     }
 
@@ -98,6 +102,90 @@ public class DaoSmokeTest {
                 return "customer 1 balance=" + outstanding.toPlainString();
             }
         });
+    }
+
+    private static void testReportPageCounts() {
+        checkReportCount("active rentals count matches all pages", new ReportCountCheck() {
+            public long count() throws Exception {
+                return REPORT_DAO.countActiveRentals();
+            }
+
+            public ArrayList<HashMap<String, Object>> page(int pageNumber, int pageSize)
+                    throws Exception {
+                return REPORT_DAO.activeRentals(pageNumber, pageSize);
+            }
+        });
+        checkReportCount("active leases count matches all pages", new ReportCountCheck() {
+            public long count() throws Exception {
+                return REPORT_DAO.countActiveLeases();
+            }
+
+            public ArrayList<HashMap<String, Object>> page(int pageNumber, int pageSize)
+                    throws Exception {
+                return REPORT_DAO.activeLeases(pageNumber, pageSize);
+            }
+        });
+        checkReportCount("outstanding balances count matches all pages",
+                new ReportCountCheck() {
+            public long count() throws Exception {
+                return REPORT_DAO.countOutstandingBalances();
+            }
+
+            public ArrayList<HashMap<String, Object>> page(int pageNumber, int pageSize)
+                    throws Exception {
+                return REPORT_DAO.outstandingBalances(pageNumber, pageSize);
+            }
+        });
+        final LocalDate throughDate = LocalDate.now().plusYears(10);
+        checkReportCount("maintenance due count matches all pages", new ReportCountCheck() {
+            public long count() throws Exception {
+                return REPORT_DAO.countMaintenanceDue(throughDate);
+            }
+
+            public ArrayList<HashMap<String, Object>> page(int pageNumber, int pageSize)
+                    throws Exception {
+                return REPORT_DAO.maintenanceDue(throughDate, pageNumber, pageSize);
+            }
+        });
+        checkReportCount("customer history count matches all pages",
+                new ReportCountCheck() {
+            public long count() throws Exception {
+                return REPORT_DAO.countCustomerTransactionHistory(1);
+            }
+
+            public ArrayList<HashMap<String, Object>> page(int pageNumber, int pageSize)
+                    throws Exception {
+                return REPORT_DAO.customerTransactionHistory(1, pageNumber, pageSize);
+            }
+        });
+    }
+
+    private static void checkReportCount(String name, final ReportCountCheck report) {
+        runTest(name, new SmokeCheck() {
+            public String run() throws Exception {
+                long expected = report.count();
+                long fetched = fetchAllReportRows(report);
+                if (expected != fetched) {
+                    throw new IllegalStateException("COUNT returned " + expected
+                            + " but paging fetched " + fetched + " rows.");
+                }
+                return "count=" + expected + ", fetched rows=" + fetched;
+            }
+        });
+    }
+
+    private static long fetchAllReportRows(ReportCountCheck report) throws Exception {
+        long total = 0;
+        int pageNumber = 1;
+        while (true) {
+            ArrayList<HashMap<String, Object>> page =
+                    report.page(pageNumber, REPORT_PAGE_SIZE);
+            total += page.size();
+            if (page.size() < REPORT_PAGE_SIZE) {
+                return total;
+            }
+            pageNumber++;
+        }
     }
 
     private static void testQueryLogOutput() {
@@ -175,5 +263,11 @@ public class DaoSmokeTest {
 
     private interface SmokeCheck {
         String run() throws Exception;
+    }
+
+    private interface ReportCountCheck {
+        long count() throws Exception;
+        ArrayList<HashMap<String, Object>> page(int pageNumber, int pageSize)
+                throws Exception;
     }
 }
