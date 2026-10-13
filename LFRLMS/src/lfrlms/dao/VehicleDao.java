@@ -3,6 +3,8 @@ package lfrlms.dao;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lfrlms.exception.LfrlmsException;
 import lfrlms.model.Vehicle;
 import lfrlms.util.QueryBuilder;
@@ -13,9 +15,16 @@ import lfrlms.util.QueryLog;
  * Concept: PreparedStatement, pagination and an ORDER BY whitelist.
  */
 public class VehicleDao extends AbstractDao {
+    private static final String DISPLAY_STATUS_SQL = "CASE WHEN v.status = 'Available' "
+            + "AND EXISTS (SELECT 1 FROM rental upcoming WHERE "
+            + "upcoming.vehicle_id = v.vehicle_id AND upcoming.status = 'Confirmed' "
+            + "AND upcoming.scheduled_start_datetime >= NOW() "
+            + "AND upcoming.scheduled_start_datetime < DATE_ADD(NOW(), INTERVAL 1 DAY)) "
+            + "THEN 'Reserved' ELSE v.status END";
     private static final String VEHICLE_SELECT = "SELECT v.vehicle_id, v.registration_no, "
             + "v.brand_id, v.category_id, v.branch_id, v.model, v.model_year, "
-            + "v.rental_rate, v.lease_rate, v.status, v.created_at, v.updated_at "
+            + "v.rental_rate, v.lease_rate, v.status, "
+            + DISPLAY_STATUS_SQL + " AS display_status, v.created_at, v.updated_at "
             + "FROM vehicle v JOIN brand b ON b.brand_id = v.brand_id "
             + "JOIN vehicle_category vc ON vc.category_id = v.category_id "
             + "JOIN branch br ON br.branch_id = v.branch_id ";
@@ -66,10 +75,10 @@ public class VehicleDao extends AbstractDao {
     }
 
     public ArrayList<Vehicle> search(String text, Integer brandId, Integer categoryId,
-            Integer branchId, String status, java.math.BigDecimal minimumRentalRate,
-            java.math.BigDecimal maximumRentalRate, java.math.BigDecimal minimumLeaseRate,
-            java.math.BigDecimal maximumLeaseRate, java.time.LocalDateTime availableFrom,
-            java.time.LocalDateTime availableTo, String sortKey, boolean ascending,
+            Integer branchId, String status, BigDecimal minimumRentalRate,
+            BigDecimal maximumRentalRate, BigDecimal minimumLeaseRate,
+            BigDecimal maximumLeaseRate, LocalDateTime availableFrom,
+            LocalDateTime availableTo, String sortKey, boolean ascending,
             int pageNumber, int pageSize) throws LfrlmsException {
         QueryBuilder query = new QueryBuilder(VEHICLE_SELECT + "WHERE 1 = 1");
         appendVehicleFilters(query, text, brandId, categoryId, branchId, status,
@@ -93,10 +102,10 @@ public class VehicleDao extends AbstractDao {
     }
 
     public long countSearchResults(String text, Integer brandId, Integer categoryId,
-            Integer branchId, String status, java.math.BigDecimal minimumRentalRate,
-            java.math.BigDecimal maximumRentalRate, java.math.BigDecimal minimumLeaseRate,
-            java.math.BigDecimal maximumLeaseRate, java.time.LocalDateTime availableFrom,
-            java.time.LocalDateTime availableTo) throws LfrlmsException {
+            Integer branchId, String status, BigDecimal minimumRentalRate,
+            BigDecimal maximumRentalRate, BigDecimal minimumLeaseRate,
+            BigDecimal maximumLeaseRate, LocalDateTime availableFrom,
+            LocalDateTime availableTo) throws LfrlmsException {
         QueryBuilder query = new QueryBuilder("SELECT COUNT(*) AS row_count "
                 + "FROM vehicle v JOIN brand b ON b.brand_id = v.brand_id "
                 + "JOIN vehicle_category vc ON vc.category_id = v.category_id "
@@ -164,16 +173,16 @@ public class VehicleDao extends AbstractDao {
 
     private void appendVehicleFilters(QueryBuilder query, String text,
             Integer brandId, Integer categoryId, Integer branchId, String status,
-            java.math.BigDecimal minimumRentalRate, java.math.BigDecimal maximumRentalRate,
-            java.math.BigDecimal minimumLeaseRate, java.math.BigDecimal maximumLeaseRate,
-            java.time.LocalDateTime availableFrom, java.time.LocalDateTime availableTo) {
+            BigDecimal minimumRentalRate, BigDecimal maximumRentalRate,
+            BigDecimal minimumLeaseRate, BigDecimal maximumLeaseRate,
+            LocalDateTime availableFrom, LocalDateTime availableTo) {
         query.appendLikeAnyCondition(new String[] {"v.registration_no", "v.model",
                 "b.brand_name"}, text);
         appendOptional(query, "v.brand_id", brandId);
         appendOptional(query, "v.category_id", categoryId);
         appendOptional(query, "v.branch_id", branchId);
         if (status != null && !status.trim().isEmpty()) {
-            query.appendAndCondition("v.status", "=", status.trim());
+            query.appendAndFixedCondition(DISPLAY_STATUS_SQL + " = ?", status.trim());
         }
         appendOptional(query, "v.rental_rate", ">=", minimumRentalRate);
         appendOptional(query, "v.rental_rate", "<=", maximumRentalRate);
@@ -220,12 +229,16 @@ public class VehicleDao extends AbstractDao {
         if (row == null) {
             return null;
         }
+        String displayStatus = stringValue(row, "display_status");
+        if (displayStatus == null) {
+            displayStatus = stringValue(row, "status");
+        }
         Vehicle vehicle = new Vehicle(intValue(row, "vehicle_id"),
                 stringValue(row, "registration_no"), intValue(row, "brand_id"),
                 intValue(row, "category_id"), intValue(row, "branch_id"),
                 stringValue(row, "model"), intValue(row, "model_year"),
                 decimalValue(row, "rental_rate"), decimalValue(row, "lease_rate"),
-                stringValue(row, "status"));
+                displayStatus);
         vehicle.setCreatedAt(dateTimeValue(row, "created_at"));
         vehicle.setUpdatedAt(dateTimeValue(row, "updated_at"));
         return vehicle;
@@ -241,7 +254,7 @@ public class VehicleDao extends AbstractDao {
         columns.put("year", "v.model_year");
         columns.put("rentalrate", "v.rental_rate");
         columns.put("leaserate", "v.lease_rate");
-        columns.put("status", "v.status");
+        columns.put("status", "display_status");
         columns.put("id", "v.vehicle_id");
         return columns;
     }

@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import lfrlms.dao.CustomerDao;
 import lfrlms.dao.DriverDao;
 import lfrlms.dao.RentalDao;
@@ -143,6 +144,11 @@ public class RentalService extends AbstractService {
         if (!rentalDao.update(rental)) {
             throw new ValidationException("The rental record could not be cancelled.");
         }
+    }
+
+    public ArrayList<Rental> upcomingForVehicle(int vehicleId, int limit)
+            throws LfrlmsException {
+        return rentalDao.findUpcomingForVehicle(vehicleId, limit);
     }
 
     private int createRental(Rental rental, Payment advancePayment) throws LfrlmsException {

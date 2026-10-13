@@ -1,5 +1,8 @@
 package lfrlms.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import lfrlms.dao.VehicleDao;
 import lfrlms.exception.LfrlmsException;
 import lfrlms.exception.ValidationException;
@@ -47,6 +50,31 @@ public class VehicleService {
 
     public boolean delete(int vehicleId) throws LfrlmsException {
         return vehicleDao.delete(vehicleId);
+    }
+
+    public Vehicle findById(int vehicleId) throws LfrlmsException {
+        return vehicleDao.findById(vehicleId);
+    }
+
+    public ArrayList<Vehicle> search(String text, Integer brandId, Integer categoryId,
+            Integer branchId, String status, BigDecimal minimumRentalRate,
+            BigDecimal maximumRentalRate, BigDecimal minimumLeaseRate,
+            BigDecimal maximumLeaseRate, LocalDateTime availableFrom,
+            LocalDateTime availableTo, String sortKey, boolean ascending,
+            int pageNumber, int pageSize) throws LfrlmsException {
+        return vehicleDao.search(text, brandId, categoryId, branchId, status,
+                minimumRentalRate, maximumRentalRate, minimumLeaseRate, maximumLeaseRate,
+                availableFrom, availableTo, sortKey, ascending, pageNumber, pageSize);
+    }
+
+    public long countSearchResults(String text, Integer brandId, Integer categoryId,
+            Integer branchId, String status, BigDecimal minimumRentalRate,
+            BigDecimal maximumRentalRate, BigDecimal minimumLeaseRate,
+            BigDecimal maximumLeaseRate, LocalDateTime availableFrom,
+            LocalDateTime availableTo) throws LfrlmsException {
+        return vehicleDao.countSearchResults(text, brandId, categoryId, branchId, status,
+                minimumRentalRate, maximumRentalRate, minimumLeaseRate, maximumLeaseRate,
+                availableFrom, availableTo);
     }
 
     private void validate(Vehicle vehicle) throws ValidationException {

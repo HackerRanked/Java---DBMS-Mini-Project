@@ -62,6 +62,14 @@ public class ReportService {
         return reportDao.customerTransactionHistory(customerId, pageNumber, pageSize);
     }
 
+    public long countCustomerTransactionHistory(int customerId) throws LfrlmsException {
+        return reportDao.countCustomerTransactionHistory(customerId);
+    }
+
+    public BigDecimal customerOutstanding(int customerId) throws LfrlmsException {
+        return reportDao.customerOutstanding(customerId);
+    }
+
     public ArrayList<HashMap<String, Object>> rentalStatusSummary()
             throws LfrlmsException {
         return reportDao.rentalStatusSummary();

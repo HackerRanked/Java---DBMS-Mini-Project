@@ -2,6 +2,7 @@ package lfrlms.service;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import lfrlms.dao.CorporateCustomerDao;
 import lfrlms.dao.CustomerDao;
 import lfrlms.dao.IndividualCustomerDao;
@@ -82,6 +83,18 @@ public class CustomerService extends AbstractService {
 
     public Customer findById(int customerId) throws LfrlmsException {
         return customerDao.findById(customerId);
+    }
+
+    public ArrayList<Customer> search(String text, String customerType,
+            Integer licenseExpiryWithinDays, String sortKey, boolean ascending,
+            int pageNumber, int pageSize) throws LfrlmsException {
+        return customerDao.search(text, customerType, licenseExpiryWithinDays,
+                sortKey, ascending, pageNumber, pageSize);
+    }
+
+    public long countSearchResults(String text, String customerType,
+            Integer licenseExpiryWithinDays) throws LfrlmsException {
+        return customerDao.countSearchResults(text, customerType, licenseExpiryWithinDays);
     }
 
     private void synchronizeSubtype(Connection connection, Customer customer)

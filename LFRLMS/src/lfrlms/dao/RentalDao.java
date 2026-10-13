@@ -69,6 +69,22 @@ public class RentalDao extends AbstractDao {
         return toRental(firstRow(queryRows(sql, Integer.valueOf(rentalId))));
     }
 
+    public ArrayList<Rental> findUpcomingForVehicle(int vehicleId, int limit)
+            throws LfrlmsException {
+        String sql = "SELECT " + RENTAL_COLUMNS + "FROM rental r "
+                + "WHERE r.vehicle_id = ? AND r.status = 'Confirmed' "
+                + "AND r.scheduled_start_datetime >= NOW() "
+                + "ORDER BY r.scheduled_start_datetime, r.rental_id LIMIT ?";
+        int safeLimit = limit < 1 ? 1 : Math.min(limit, 100);
+        ArrayList<HashMap<String, Object>> rows = queryRows(sql,
+                Integer.valueOf(vehicleId), Integer.valueOf(safeLimit));
+        ArrayList<Rental> rentals = new ArrayList<Rental>();
+        for (HashMap<String, Object> row : rows) {
+            rentals.add(toRental(row));
+        }
+        return rentals;
+    }
+
     public ArrayList<Rental> findPage(String sortKey, boolean ascending,
             int pageNumber, int pageSize) throws LfrlmsException {
         return search(null, null, null, null, false, sortKey, ascending,

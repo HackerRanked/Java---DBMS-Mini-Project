@@ -70,6 +70,18 @@ public class LookupService {
         }
     }
 
+    public ArrayList<Brand> listBrands() throws LfrlmsException {
+        return brandDao.findPage("brandName", true, 1, PAGE_SIZE);
+    }
+
+    public ArrayList<VehicleCategory> listCategories() throws LfrlmsException {
+        return categoryDao.findPage("categoryName", true, 1, PAGE_SIZE);
+    }
+
+    public ArrayList<Branch> listBranches() throws LfrlmsException {
+        return branchDao.findPage("branchName", true, 1, PAGE_SIZE);
+    }
+
     public int saveBrand(Brand brand) throws LfrlmsException {
         if (brand == null || !Validator.isValid(brand.getBrandName())) {
             throw new ValidationException("Enter a brand name.");
