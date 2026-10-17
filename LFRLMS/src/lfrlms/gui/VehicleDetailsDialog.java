@@ -94,7 +94,7 @@ public class VehicleDetailsDialog extends JDialog {
             @Override
             public void completed(ArrayList<Rental> rentals, Exception failure) {
                 if (failure != null) {
-                    messageLabel.setText("Upcoming rentals could not be loaded.");
+                    messageLabel.setText(" ");
                     GuiSupport.showFailure(VehicleDetailsDialog.this,
                             "Load upcoming rentals", failure, null);
                     return;

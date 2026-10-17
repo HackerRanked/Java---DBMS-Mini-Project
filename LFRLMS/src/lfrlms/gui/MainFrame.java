@@ -69,11 +69,11 @@ public class MainFrame extends JFrame {
         tabs.addTab("Dashboard", placeholder("Dashboard summaries will be added later."));
         tabs.addTab("Vehicles", new VehiclesPanel());
         tabs.addTab("Customers", new CustomersPanel());
-        tabs.addTab("Rentals", placeholder("Rental workflows will be added later."));
-        tabs.addTab("Leases", placeholder("Lease workflows will be added later."));
-        tabs.addTab("Payments", placeholder("Payment workflows will be added later."));
-        tabs.addTab("Maintenance", placeholder("Maintenance workflows will be added later."));
-        tabs.addTab("Drivers", placeholder("Driver management will be added later."));
+        tabs.addTab("Rentals", new RentalsPanel());
+        tabs.addTab("Leases", new LeasesPanel());
+        tabs.addTab("Payments", new PaymentsPanel());
+        tabs.addTab("Maintenance", new MaintenancePanel());
+        tabs.addTab("Drivers", new DriversPanel());
         tabs.addTab("Reports", placeholder("Reports will be added later."));
         tabs.addTab("DBMS Insights", placeholder("Database insights will be added later."));
         add(tabs, BorderLayout.CENTER);

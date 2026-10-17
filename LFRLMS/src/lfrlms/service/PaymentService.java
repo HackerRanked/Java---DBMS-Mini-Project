@@ -43,6 +43,15 @@ public class PaymentService extends AbstractService {
         try (Connection connection = openConnection()) {
             beginTransaction(connection);
             try {
+                if (payment.getRentalId() != null) {
+                    if (rentalDao.lockByIdForUpdate(connection,
+                            payment.getRentalId().intValue()) == null) {
+                        throw new ValidationException("Select an existing rental.");
+                    }
+                } else if (leaseDao.lockByIdForUpdate(connection,
+                        payment.getLeaseId().intValue()) == null) {
+                    throw new ValidationException("Select an existing lease.");
+                }
                 validateOutstanding(payment, null);
                 int paymentId = paymentDao.insert(connection, payment);
                 commit(connection);
@@ -63,10 +72,55 @@ public class PaymentService extends AbstractService {
         return reportDao.customerOutstanding(customerId);
     }
 
+    public ArrayList<Payment> search(String text, String status, LocalDateTime from,
+            LocalDateTime to, boolean outstandingOnly, String sortKey,
+            boolean ascending, int pageNumber, int pageSize) throws LfrlmsException {
+        return paymentDao.search(text, status, from, to, outstandingOnly,
+                sortKey, ascending, pageNumber, pageSize);
+    }
+
+    public long countSearchResults(String text, String status, LocalDateTime from,
+            LocalDateTime to, boolean outstandingOnly) throws LfrlmsException {
+        return paymentDao.countSearchResults(text, status, from, to, outstandingOnly);
+    }
+
+    public ArrayList<Rental> listBillableRentals() throws LfrlmsException {
+        ArrayList<Rental> result = new ArrayList<Rental>();
+        appendRentalsByStatus(result, Constants.RENTAL_ACTIVE);
+        appendRentalsByStatus(result, Constants.RENTAL_COMPLETED);
+        return result;
+    }
+
+    public ArrayList<Lease> listBillableLeases() throws LfrlmsException {
+        ArrayList<Lease> result = new ArrayList<Lease>();
+        appendLeasesByStatus(result, Constants.LEASE_ACTIVE);
+        appendLeasesByStatus(result, Constants.LEASE_COMPLETED);
+        return result;
+    }
+
+    public BigDecimal rentalOutstanding(int rentalId) throws LfrlmsException {
+        Rental rental = rentalDao.findById(rentalId);
+        if (rental == null) {
+            throw new ValidationException("Select an existing rental.");
+        }
+        return outstandingForRental(rental, null);
+    }
+
+    public BigDecimal leaseOutstanding(int leaseId) throws LfrlmsException {
+        Lease lease = leaseDao.findById(leaseId);
+        if (lease == null) {
+            throw new ValidationException("Select an existing lease.");
+        }
+        return outstandingForLease(lease, null);
+    }
+
     public void refund(int paymentId) throws LfrlmsException {
         Payment payment = paymentDao.findById(paymentId);
         if (payment == null || Constants.PAYMENT_REFUNDED.equals(payment.getStatus())) {
             throw new ValidationException("Choose an existing, unrefunded payment.");
+        }
+        if (!Constants.PAYMENT_SUCCESS.equals(payment.getStatus())) {
+            throw new ValidationException("Only successful payments can be refunded.");
         }
         payment.setStatus(Constants.PAYMENT_REFUNDED);
         if (!paymentDao.update(payment)) {
@@ -149,6 +203,34 @@ public class PaymentService extends AbstractService {
             }
             if (page.size() < PAGE_SIZE) {
                 return total;
+            }
+            pageNumber++;
+        }
+    }
+
+    private void appendRentalsByStatus(ArrayList<Rental> result, String status)
+            throws LfrlmsException {
+        int pageNumber = 1;
+        while (true) {
+            ArrayList<Rental> page = rentalDao.search(null, status, null, null,
+                    false, "scheduledStart", true, pageNumber, PAGE_SIZE);
+            result.addAll(page);
+            if (page.size() < PAGE_SIZE) {
+                return;
+            }
+            pageNumber++;
+        }
+    }
+
+    private void appendLeasesByStatus(ArrayList<Lease> result, String status)
+            throws LfrlmsException {
+        int pageNumber = 1;
+        while (true) {
+            ArrayList<Lease> page = leaseDao.search(null, status, null, null,
+                    false, "startDate", true, pageNumber, PAGE_SIZE);
+            result.addAll(page);
+            if (page.size() < PAGE_SIZE) {
+                return;
             }
             pageNumber++;
         }

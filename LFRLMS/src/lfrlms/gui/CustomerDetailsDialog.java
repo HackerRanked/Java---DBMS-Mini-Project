@@ -109,7 +109,7 @@ public class CustomerDetailsDialog extends JDialog {
             @Override
             public void completed(DetailData data, Exception failure) {
                 if (failure != null) {
-                    messageLabel.setText("Customer history could not be loaded.");
+                    messageLabel.setText(" ");
                     GuiSupport.showFailure(CustomerDetailsDialog.this,
                             "Load customer details", failure, null);
                     return;

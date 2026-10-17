@@ -1,5 +1,6 @@
 package lfrlms.dao;
 
+import java.sql.Connection;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,6 +52,13 @@ public class LeaseDao extends AbstractDao {
     public Lease findById(int leaseId) throws LfrlmsException {
         String sql = "SELECT " + LEASE_COLUMNS + "FROM lease l WHERE l.lease_id = ?";
         return toLease(firstRow(queryRows(sql, Integer.valueOf(leaseId))));
+    }
+
+    public Lease lockByIdForUpdate(Connection connection, int leaseId)
+            throws LfrlmsException {
+        String sql = "SELECT " + LEASE_COLUMNS
+                + "FROM lease l WHERE l.lease_id = ? FOR UPDATE";
+        return toLease(firstRow(queryRows(connection, sql, Integer.valueOf(leaseId))));
     }
 
     public ArrayList<Lease> findPage(String sortKey, boolean ascending,

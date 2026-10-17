@@ -53,6 +53,36 @@ public class RentalService extends AbstractService {
         return createRental(rental, null);
     }
 
+    public int createReservation(int customerId, int vehicleId, Integer driverId,
+            LocalDateTime scheduledStart, LocalDateTime expectedReturn)
+            throws LfrlmsException {
+        Rental rental = new Rental();
+        rental.setCustomerId(customerId);
+        rental.setVehicleId(vehicleId);
+        rental.setDriverId(driverId);
+        rental.setScheduledStartDatetime(scheduledStart);
+        rental.setExpectedReturnDatetime(expectedReturn);
+        rental.setStatus(Constants.RENTAL_CONFIRMED);
+        return createRental(rental);
+    }
+
+    public int createWalkIn(int customerId, int vehicleId, Integer driverId,
+            LocalDateTime expectedReturn, int odometerOut, String conditionOut)
+            throws LfrlmsException {
+        LocalDateTime pickupTime = LocalDateTime.now();
+        Rental rental = new Rental();
+        rental.setCustomerId(customerId);
+        rental.setVehicleId(vehicleId);
+        rental.setDriverId(driverId);
+        rental.setScheduledStartDatetime(pickupTime);
+        rental.setExpectedReturnDatetime(expectedReturn);
+        rental.setActualPickupDatetime(pickupTime);
+        rental.setOdometerOut(Integer.valueOf(odometerOut));
+        rental.setConditionOut(conditionOut);
+        rental.setStatus(Constants.RENTAL_ACTIVE);
+        return createRental(rental);
+    }
+
     public int createRentalWithAdvancePayment(Rental rental, Payment payment)
             throws LfrlmsException {
         if (payment == null) {
@@ -144,6 +174,22 @@ public class RentalService extends AbstractService {
         if (!rentalDao.update(rental)) {
             throw new ValidationException("The rental record could not be cancelled.");
         }
+    }
+
+    public Rental findById(int rentalId) throws LfrlmsException {
+        return rentalDao.findById(rentalId);
+    }
+
+    public ArrayList<Rental> search(String text, String status, LocalDateTime from,
+            LocalDateTime to, boolean outstandingOnly, String sortKey,
+            boolean ascending, int pageNumber, int pageSize) throws LfrlmsException {
+        return rentalDao.search(text, status, from, to, outstandingOnly,
+                sortKey, ascending, pageNumber, pageSize);
+    }
+
+    public long countSearchResults(String text, String status, LocalDateTime from,
+            LocalDateTime to, boolean outstandingOnly) throws LfrlmsException {
+        return rentalDao.countSearchResults(text, status, from, to, outstandingOnly);
     }
 
     public ArrayList<Rental> upcomingForVehicle(int vehicleId, int limit)

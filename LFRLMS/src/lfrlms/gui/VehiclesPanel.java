@@ -246,9 +246,9 @@ public class VehiclesPanel extends JPanel {
         } else if ("details".equals(action)) {
             showDetails();
         } else if ("create-rental".equals(action)) {
-            showPlaceholder("Create Rental");
+            openContractDialog(true);
         } else if ("create-lease".equals(action)) {
-            showPlaceholder("Create Lease");
+            openContractDialog(false);
         } else if ("refresh".equals(action)) {
             loadLookups();
             searchVehicles();
@@ -333,7 +333,7 @@ public class VehiclesPanel extends JPanel {
             public void completed(LookupData data, Exception failure) {
                 if (failure != null) {
                     lookupsReady = false;
-                    messageLabel.setText("Lookup values could not be loaded.");
+                    messageLabel.setText(" ");
                     GuiSupport.showFailure(VehiclesPanel.this, "Load vehicle filters",
                             failure, new Runnable() {
                                 @Override
@@ -421,7 +421,7 @@ public class VehiclesPanel extends JPanel {
             @Override
             public void completed(SearchData data, Exception failure) {
                 if (failure != null) {
-                    messageLabel.setText("Vehicle search failed.");
+                    messageLabel.setText(" ");
                     GuiSupport.showFailure(VehiclesPanel.this, "Search vehicles", failure,
                             new Runnable() {
                                 @Override
@@ -624,11 +624,16 @@ public class VehiclesPanel extends JPanel {
         dialog.setVisible(true);
     }
 
-    private void showPlaceholder(String action) {
+    private void openContractDialog(boolean rental) {
         Vehicle vehicle = selectedVehicle();
-        if (vehicle != null) {
-            JOptionPane.showMessageDialog(this, action + " for "
-                    + vehicle.getRegistrationNo() + " will be available in a later phase.");
+        if (vehicle == null) {
+            return;
+        }
+        boolean saved = ContractFormDialog.showDialog(
+                javax.swing.SwingUtilities.getWindowAncestor(this), rental,
+                Integer.valueOf(vehicle.getVehicleId()));
+        if (saved) {
+            searchVehicles();
         }
     }
 

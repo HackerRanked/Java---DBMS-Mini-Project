@@ -1,5 +1,6 @@
 package lfrlms.service;
 
+import java.util.ArrayList;
 import lfrlms.dao.DriverDao;
 import lfrlms.exception.LfrlmsException;
 import lfrlms.exception.ValidationException;
@@ -49,4 +50,14 @@ public class DriverService {
     public boolean delete(int driverId) throws LfrlmsException {
         return driverDao.delete(driverId);
     }
+
+    public ArrayList<Driver> listPage(String sortKey, boolean ascending,
+            int pageNumber, int pageSize) throws LfrlmsException {
+        return driverDao.findPage(sortKey, ascending, pageNumber, pageSize);
+    }
+
+    public long countAll() throws LfrlmsException {
+        return driverDao.countAll();
+    }
+
 }

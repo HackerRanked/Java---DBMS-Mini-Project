@@ -104,6 +104,18 @@ public class MaintenanceService extends AbstractService {
         }
     }
 
+    public ArrayList<Maintenance> search(String text, String status,
+            LocalDate serviceFrom, LocalDate serviceTo, String sortKey,
+            boolean ascending, int pageNumber, int pageSize) throws LfrlmsException {
+        return maintenanceDao.search(text, status, serviceFrom, serviceTo,
+                sortKey, ascending, pageNumber, pageSize);
+    }
+
+    public long countSearchResults(String text, String status, LocalDate serviceFrom,
+            LocalDate serviceTo) throws LfrlmsException {
+        return maintenanceDao.countSearchResults(text, status, serviceFrom, serviceTo);
+    }
+
     private ArrayList<Rental> findFutureConfirmedRentals(int vehicleId, LocalDate serviceDate)
             throws LfrlmsException {
         ArrayList<Rental> warnings = new ArrayList<Rental>();

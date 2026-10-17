@@ -257,7 +257,7 @@ public class CustomersPanel extends JPanel {
             @Override
             public void completed(SearchData data, Exception failure) {
                 if (failure != null) {
-                    messageLabel.setText("Customer search failed.");
+                    messageLabel.setText(" ");
                     GuiSupport.showFailure(CustomersPanel.this, "Search customers", failure,
                             new Runnable() {
                                 @Override

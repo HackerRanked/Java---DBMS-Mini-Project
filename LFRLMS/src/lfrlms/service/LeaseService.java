@@ -1,8 +1,11 @@
 package lfrlms.service;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import lfrlms.dao.CustomerDao;
 import lfrlms.dao.LeaseDao;
 import lfrlms.dao.VehicleDao;
@@ -76,6 +79,21 @@ public class LeaseService extends AbstractService {
         }
     }
 
+    public int scheduleLease(int customerId, int vehicleId, LocalDate startDate,
+            LocalDate endDate, BigDecimal deposit) throws LfrlmsException {
+        if (deposit == null || !Validator.isNonNegative(deposit)) {
+            throw new ValidationException("Lease deposit must be zero or greater.");
+        }
+        Lease lease = new Lease();
+        lease.setCustomerId(customerId);
+        lease.setVehicleId(vehicleId);
+        lease.setStartDate(startDate);
+        lease.setEndDate(endDate);
+        lease.setDeposit(deposit);
+        lease.setStatus(Constants.LEASE_SCHEDULED);
+        return createLease(lease);
+    }
+
     public void startLease(int leaseId) throws LfrlmsException {
         Lease initial = leaseDao.findById(leaseId);
         if (initial == null) {
@@ -91,8 +109,12 @@ public class LeaseService extends AbstractService {
                     throw new ValidationException("Only a scheduled lease can be started.");
                 }
                 validateCustomer(lease);
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime scheduledStart = lease.getStartDate().atStartOfDay();
+                LocalDateTime availabilityFrom = now.isBefore(scheduledStart)
+                        ? now : scheduledStart;
                 if (!availabilityService.isVehicleAvailable(lease.getVehicleId(),
-                        lease.getStartDate().atStartOfDay(),
+                        availabilityFrom,
                         lease.getEndDate().plusDays(1).atStartOfDay(), null,
                         Integer.valueOf(leaseId))) {
                     throw new VehicleNotAvailableException(
@@ -158,6 +180,19 @@ public class LeaseService extends AbstractService {
 
     public Lease findById(int leaseId) throws LfrlmsException {
         return leaseDao.findById(leaseId);
+    }
+
+    public ArrayList<Lease> search(String text, String status,
+            LocalDate from, LocalDate to, boolean outstandingOnly,
+            String sortKey, boolean ascending, int pageNumber, int pageSize)
+            throws LfrlmsException {
+        return leaseDao.search(text, status, from, to, outstandingOnly,
+                sortKey, ascending, pageNumber, pageSize);
+    }
+
+    public long countSearchResults(String text, String status, LocalDate from,
+            LocalDate to, boolean outstandingOnly) throws LfrlmsException {
+        return leaseDao.countSearchResults(text, status, from, to, outstandingOnly);
     }
 
     private void validateCustomer(Lease lease) throws LfrlmsException {

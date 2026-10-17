@@ -34,6 +34,7 @@ import lfrlms.model.Vehicle;
 import lfrlms.service.AvailabilityService;
 import lfrlms.service.BillingService;
 import lfrlms.service.CustomerService;
+import lfrlms.service.LeaseService;
 import lfrlms.service.PaymentService;
 import lfrlms.service.RentalService;
 import lfrlms.util.Constants;
@@ -44,6 +45,7 @@ public final class ConsoleTest {
     private final AvailabilityService availabilityService = new AvailabilityService();
     private final BillingService billingService = new BillingService();
     private final CustomerService customerService = new CustomerService();
+    private final LeaseService leaseService = new LeaseService();
     private final RentalService rentalService = new RentalService();
     private final PaymentService paymentService = new PaymentService();
     private final CustomerDao customerDao = new CustomerDao();
@@ -199,6 +201,64 @@ public final class ConsoleTest {
                 }
             });
 
+            run("early lease start is rejected by a conflicting Confirmed rental",
+                    new TestAction() {
+                public void run() throws Exception {
+                    long rentalsBefore = rentalDao.countAll();
+                    long leasesBefore = leaseDao.countAll();
+                    int rentalId = 0;
+                    int leaseId = 0;
+                    try {
+                        LocalDateTime now = LocalDateTime.now().withNano(0);
+                        LocalDateTime rentalStart = now.plusDays(2);
+                        LocalDateTime rentalEnd = now.plusDays(4);
+                        LocalDate leaseStart = LocalDate.now().plusDays(6);
+                        LocalDate leaseEnd = leaseStart.plusDays(30);
+                        Vehicle vehicle = chooseVehicleForEarlyLease(rentalStart, rentalEnd,
+                                leaseStart, leaseEnd);
+
+                        Rental confirmedRental = confirmed(vehicle.getVehicleId(),
+                                rentalStart, rentalEnd);
+                        confirmedRental.setCustomerId(fixtureCustomer.getCustomerId());
+                        rentalId = rentalService.createRental(confirmedRental);
+                        leaseId = leaseService.scheduleLease(fixtureCustomer.getCustomerId(),
+                                vehicle.getVehicleId(), leaseStart, leaseEnd,
+                                BigDecimal.ZERO.setScale(2));
+
+                        long rentalsBeforeStart = rentalDao.countAll();
+                        long leasesBeforeStart = leaseDao.countAll();
+                        boolean rejected = false;
+                        try {
+                            leaseService.startLease(leaseId);
+                        } catch (VehicleNotAvailableException expected) {
+                            rejected = true;
+                        }
+                        require(rejected,
+                                "early lease start ignored a conflicting Confirmed rental");
+                        require(rentalsBeforeStart == rentalDao.countAll()
+                                && leasesBeforeStart == leaseDao.countAll(),
+                                "row counts changed after the rejected early lease start");
+                    } finally {
+                        try {
+                            if (leaseId > 0) {
+                                Lease lease = leaseDao.findById(leaseId);
+                                if (lease != null
+                                        && Constants.LEASE_ACTIVE.equals(lease.getStatus())) {
+                                    leaseService.finishLease(leaseId,
+                                            Constants.LEASE_TERMINATED);
+                                }
+                                leaseDao.delete(leaseId);
+                            }
+                        } finally {
+                            deleteRental(rentalId);
+                        }
+                    }
+                    require(rentalsBefore == rentalDao.countAll()
+                            && leasesBefore == leaseDao.countAll(),
+                            "rental or lease row count changed after cleanup");
+                }
+            });
+
             run("overdue Active rental blocks its vehicle", new TestAction() {
                 public void run() throws Exception {
                     Rental overdue = findOverdueActiveRental();
@@ -293,6 +353,36 @@ public final class ConsoleTest {
                     } catch (ValidationException expected) {
                         // Rejected before any database write.
                     }
+                }
+            });
+
+            run("refund of a non-Success payment is rejected without row-count changes",
+                    new TestAction() {
+                public void run() throws Exception {
+                    long[] countsBefore = customerRelatedCounts();
+                    int paymentId = 0;
+                    try {
+                        Payment pending = recordPendingPaymentForOutstandingContract();
+                        paymentId = pending.getPaymentId();
+                        try {
+                            paymentService.refund(paymentId);
+                            throw new AssertionError("a Pending payment was refunded");
+                        } catch (ValidationException expected) {
+                            require("Only successful payments can be refunded."
+                                    .equals(expected.getMessage()),
+                                    "refund rejection did not have a friendly message");
+                        }
+                        Payment saved = paymentDao.findById(paymentId);
+                        require(saved != null
+                                && Constants.PAYMENT_PENDING.equals(saved.getStatus()),
+                                "the non-Success payment status changed after refund rejection");
+                    } finally {
+                        if (paymentId > 0) {
+                            paymentDao.delete(paymentId);
+                        }
+                    }
+                    require(Arrays.equals(countsBefore, customerRelatedCounts()),
+                            "row counts changed after the non-Success refund test");
                 }
             });
 
@@ -802,6 +892,63 @@ public final class ConsoleTest {
             candidateTo = candidateTo.plusDays(30);
         }
         throw new AssertionError("no available rental vehicle was returned");
+    }
+
+    private Vehicle chooseVehicleForEarlyLease(LocalDateTime rentalFrom,
+            LocalDateTime rentalTo, LocalDate leaseStart, LocalDate leaseEnd)
+            throws Exception {
+        int pageNumber = 1;
+        while (true) {
+            ArrayList<Vehicle> vehicles = vehicleDao.search(null, null, null, null,
+                    null, null, null, null, null, null, null,
+                    "id", true, pageNumber, PAGE_SIZE);
+            for (Vehicle vehicle : vehicles) {
+                if (!Constants.VEHICLE_AVAILABLE.equals(vehicle.getStatus())
+                        || vehicle.getRentalRate() == null || vehicle.getLeaseRate() == null) {
+                    continue;
+                }
+                boolean freeForRental = availabilityService.isVehicleAvailable(
+                        vehicle.getVehicleId(), rentalFrom, rentalTo, null, null);
+                boolean freeForScheduledLease = availabilityService.isVehicleAvailable(
+                        vehicle.getVehicleId(), leaseStart.atStartOfDay(),
+                        leaseEnd.plusDays(1).atStartOfDay(), null, null);
+                if (freeForRental && freeForScheduledLease) {
+                    return vehicle;
+                }
+            }
+            if (vehicles.size() < PAGE_SIZE) {
+                break;
+            }
+            pageNumber++;
+        }
+        throw new AssertionError("no vehicle is free for both early-lease test windows");
+    }
+
+    private Payment recordPendingPaymentForOutstandingContract() throws Exception {
+        BigDecimal minimum = new BigDecimal("0.01");
+        for (Rental rental : paymentService.listBillableRentals()) {
+            if (paymentService.rentalOutstanding(rental.getRentalId()).compareTo(minimum) >= 0) {
+                Payment payment = new Payment();
+                payment.setRentalId(Integer.valueOf(rental.getRentalId()));
+                payment.setAmount(minimum);
+                payment.setMethod(Constants.PAYMENT_CASH);
+                payment.setStatus(Constants.PAYMENT_PENDING);
+                payment.setPaymentId(paymentService.recordPayment(payment));
+                return payment;
+            }
+        }
+        for (Lease lease : paymentService.listBillableLeases()) {
+            if (paymentService.leaseOutstanding(lease.getLeaseId()).compareTo(minimum) >= 0) {
+                Payment payment = new Payment();
+                payment.setLeaseId(Integer.valueOf(lease.getLeaseId()));
+                payment.setAmount(minimum);
+                payment.setMethod(Constants.PAYMENT_CASH);
+                payment.setStatus(Constants.PAYMENT_PENDING);
+                payment.setPaymentId(paymentService.recordPayment(payment));
+                return payment;
+            }
+        }
+        throw new AssertionError("no billable contract has at least 0.01 outstanding");
     }
 
     private Rental confirmed(int vehicleId, LocalDateTime start, LocalDateTime end) {
