@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import lfrlms.exception.DataAccessException;
+import lfrlms.exception.DuplicateRecordException;
 import lfrlms.exception.LfrlmsException;
 import lfrlms.exception.RecordInUseException;
 import lfrlms.util.DBConnection;
@@ -306,6 +307,33 @@ public abstract class AbstractDao {
         if (exception.getErrorCode() == 1451) {
             return new RecordInUseException("Deactivate it instead", exception);
         }
+        if (exception.getErrorCode() == 1062 && "23000".equals(exception.getSQLState())) {
+            String duplicateMessage = duplicateMessage(exception);
+            if (duplicateMessage != null) {
+                return new DuplicateRecordException(duplicateMessage, exception);
+            }
+        }
         return new DataAccessException("Could not " + action + ".", exception);
+    }
+
+    private String duplicateMessage(SQLException exception) {
+        SQLException current = exception;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String key = message.toLowerCase(java.util.Locale.ROOT);
+                if (key.contains("uq_individual_license")) {
+                    return "A customer with this driving licence number already exists.";
+                }
+                if (key.contains("uq_customer_email")) {
+                    return "A customer with this email address already exists.";
+                }
+                if (key.contains("uq_corporate_customer_gst")) {
+                    return "A customer with this GST number already exists.";
+                }
+            }
+            current = current.getNextException();
+        }
+        return null;
     }
 }

@@ -4,19 +4,24 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
+import lfrlms.dao.CorporateCustomerDao;
 import lfrlms.dao.CustomerDao;
+import lfrlms.dao.IndividualCustomerDao;
 import lfrlms.dao.LeaseDao;
 import lfrlms.dao.MaintenanceDao;
 import lfrlms.dao.PaymentDao;
 import lfrlms.dao.RentalDao;
 import lfrlms.dao.ReportDao;
 import lfrlms.dao.VehicleDao;
+import lfrlms.exception.DuplicateRecordException;
 import lfrlms.exception.IneligibleCustomerException;
 import lfrlms.exception.LfrlmsException;
+import lfrlms.exception.RecordInUseException;
 import lfrlms.exception.ValidationException;
 import lfrlms.exception.VehicleNotAvailableException;
 import lfrlms.model.CorporateCustomer;
@@ -48,6 +53,8 @@ public final class ConsoleTest {
     private final VehicleDao vehicleDao = new VehicleDao();
     private final PaymentDao paymentDao = new PaymentDao();
     private final ReportDao reportDao = new ReportDao();
+    private final IndividualCustomerDao individualCustomerDao = new IndividualCustomerDao();
+    private final CorporateCustomerDao corporateCustomerDao = new CorporateCustomerDao();
     private IndividualCustomer fixtureCustomer;
     private int failures;
 
@@ -62,7 +69,6 @@ public final class ConsoleTest {
         String[] parityWindows = new String[] {
             "past-adjacent",
             "current",
-            "overlapping Active rental",
             "overlapping Confirmed rental",
             "overlapping in-progress maintenance",
             "far future"
@@ -74,6 +80,7 @@ public final class ConsoleTest {
                 }
             });
         }
+        runActiveRentalParityChecks();
 
         run("availability search", new TestAction() {
             public void run() throws Exception {
@@ -96,6 +103,64 @@ public final class ConsoleTest {
         }
 
         try {
+            run("customer with rental history cannot be deleted", new TestAction() {
+                public void run() throws Exception {
+                    long[] before = customerRelatedCounts();
+                    int customerId = 0;
+                    int rentalId = 0;
+                    try {
+                        IndividualCustomer historyCustomer = newIndividual(
+                                LocalDate.now().plusYears(5));
+                        customerId = customerService.save(historyCustomer);
+                        LocalDateTime start = LocalDateTime.now().plusDays(20);
+                        int vehicleId = chooseAvailableVehicle(start, start.plusDays(1));
+                        Rental rental = confirmed(vehicleId, start, start.plusDays(1));
+                        rental.setCustomerId(customerId);
+                        rentalId = rentalService.createRental(rental);
+                        require(!customerService.canDelete(customerId),
+                                "canDelete allowed a customer with a rental");
+                        try {
+                            customerService.delete(customerId);
+                            throw new AssertionError("customer with rental history was deleted");
+                        } catch (RecordInUseException expected) {
+                            require(CustomerService.HISTORY_DELETE_MESSAGE.equals(
+                                    expected.getMessage()), "unexpected history-delete message");
+                        }
+                    } finally {
+                        deleteRental(rentalId);
+                        if (customerId > 0 && customerService.findById(customerId) != null) {
+                            customerService.delete(customerId);
+                        }
+                    }
+                    require(Arrays.equals(before, customerRelatedCounts()),
+                            "customer-related row counts changed after history-delete test");
+                }
+            });
+
+            run("customer without history can be deleted", new TestAction() {
+                public void run() throws Exception {
+                    long[] before = customerRelatedCounts();
+                    int customerId = 0;
+                    try {
+                        IndividualCustomer candidate = newIndividual(
+                                LocalDate.now().plusYears(5));
+                        customerId = customerService.save(candidate);
+                        require(customerService.canDelete(customerId),
+                                "canDelete rejected a customer without history");
+                        require(customerService.delete(customerId),
+                                "customer without history was not deleted");
+                        require(customerService.findById(customerId) == null,
+                                "deleted customer parent still exists");
+                    } finally {
+                        if (customerId > 0 && customerService.findById(customerId) != null) {
+                            customerService.delete(customerId);
+                        }
+                    }
+                    require(Arrays.equals(before, customerRelatedCounts()),
+                            "customer-related row counts changed after deletion");
+                }
+            });
+
             run("creating a Confirmed rental", new TestAction() {
                 public void run() throws Exception {
                     int rentalId = 0;
@@ -273,24 +338,55 @@ public final class ConsoleTest {
                 }
             });
 
-            run("failed subtype insert rolls back with no customer parent left behind",
+            run("duplicate licence rolls back parent and leaves row counts unchanged",
                     new TestAction() {
                 public void run() throws Exception {
-                    long countBefore = customerDao.countAll();
+                    long[] countBefore = customerRelatedCounts();
                     IndividualCustomer duplicateLicense = newIndividual(
                             LocalDate.now().plusYears(4));
                     duplicateLicense.setLicenseNo(fixtureCustomer.getLicenseNo());
                     boolean failed = false;
                     try {
                         customerService.save(duplicateLicense);
-                    } catch (LfrlmsException expected) {
+                    } catch (DuplicateRecordException expected) {
                         failed = true;
+                        require("A customer with this driving licence number already exists."
+                                .equals(expected.getMessage()),
+                                "duplicate licence did not get its friendly message");
                     }
                     require(failed, "the duplicate subtype insert unexpectedly succeeded");
-                    require(customerDao.countAll() == countBefore,
-                            "the customer count changed after rollback");
+                    require(Arrays.equals(countBefore, customerRelatedCounts()),
+                            "a customer/subtype row remains after duplicate licence rollback");
                     require(!customerExistsByEmail(duplicateLicense.getEmail()),
                             "the customer parent row remains after subtype rollback");
+                }
+            });
+
+            run("duplicate email is rejected and leaves row counts unchanged",
+                    new TestAction() {
+                public void run() throws Exception {
+                    long[] countBefore = customerRelatedCounts();
+                    IndividualCustomer duplicateEmail = newIndividual(
+                            LocalDate.now().plusYears(4));
+                    duplicateEmail.setEmail(fixtureCustomer.getEmail());
+                    boolean failed = false;
+                    try {
+                        customerService.save(duplicateEmail);
+                    } catch (DuplicateRecordException expected) {
+                        failed = true;
+                        require("A customer with this email address already exists."
+                                .equals(expected.getMessage()),
+                                "duplicate email did not get its friendly message");
+                    }
+                    require(failed, "the duplicate email unexpectedly succeeded");
+                    require(Arrays.equals(countBefore, customerRelatedCounts()),
+                            "a customer row remains after duplicate email rejection");
+                    ArrayList<lfrlms.model.Customer> emailMatches = customerDao.search(
+                            duplicateEmail.getEmail(), null, null, "email", true, 1, 5);
+                    require(emailMatches.size() == 1
+                            && emailMatches.get(0).getCustomerId()
+                            == fixtureCustomer.getCustomerId(),
+                            "the duplicate email attempt changed the matching parent rows");
                 }
             });
 
@@ -365,15 +461,6 @@ public final class ConsoleTest {
             }
         } else if ("current".equals(name)) {
             return new AvailabilityWindow(now, now.plusHours(2));
-        } else if ("overlapping Active rental".equals(name)) {
-            for (Rental rental : allRentals()) {
-                if (Constants.RENTAL_ACTIVE.equals(rental.getStatus())
-                        && rental.getActualPickupDatetime() != null
-                        && rental.getActualPickupDatetime().isBefore(now.plusMinutes(15))
-                        && rental.getExpectedReturnDatetime().isAfter(now.plusMinutes(20))) {
-                    return new AvailabilityWindow(now.plusMinutes(5), now.plusMinutes(15));
-                }
-            }
         } else if ("overlapping Confirmed rental".equals(name)) {
             for (Rental rental : allRentals()) {
                 if (Constants.RENTAL_CONFIRMED.equals(rental.getStatus())
@@ -397,7 +484,81 @@ public final class ConsoleTest {
         throw new AssertionError("No seeded record could build the '" + name + "' window.");
     }
 
+    private void runActiveRentalParityChecks() {
+        final ArrayList<Rental> rentals;
+        try {
+            rentals = allRentals();
+        } catch (Exception failure) {
+            failures++;
+            System.out.println("FAIL: availability parity Active rental fixture lookup ("
+                    + failure.getClass().getSimpleName() + ")");
+            if (failure.getMessage() != null && !failure.getMessage().trim().isEmpty()) {
+                System.out.println(failure.getMessage());
+            }
+            return;
+        }
+
+        final LocalDateTime fixtureNow = LocalDateTime.now();
+        final Rental nonOverdue = findActiveRental(rentals, false, fixtureNow);
+        if (nonOverdue == null) {
+            System.out.println("SKIPPED: no Active rental with expected_return_datetime > NOW().");
+        } else {
+            run("availability parity: overlapping non-overdue Active rental",
+                    new TestAction() {
+                public void run() throws Exception {
+                    LocalDateTime from = LocalDateTime.now();
+                    LocalDateTime to = nonOverdue.getExpectedReturnDatetime().plusMinutes(1);
+                    if (!to.isAfter(from)) {
+                        to = from.plusMinutes(1);
+                    }
+                    AvailabilityWindow window = new AvailabilityWindow(from, to);
+                    compareAvailabilitySources(window,
+                            Integer.valueOf(nonOverdue.getVehicleId()));
+                }
+            });
+        }
+
+        final Rental overdue = findActiveRental(rentals, true, fixtureNow);
+        if (overdue == null) {
+            System.out.println("SKIPPED: no Active rental with expected_return_datetime <= NOW().");
+        } else {
+            run("availability parity: overdue Active rental remains blocked",
+                    new TestAction() {
+                public void run() throws Exception {
+                    LocalDateTime from = LocalDateTime.now().plusSeconds(1);
+                    AvailabilityWindow window = new AvailabilityWindow(from,
+                            from.plusHours(1));
+                    compareAvailabilitySources(window,
+                            Integer.valueOf(overdue.getVehicleId()));
+                }
+            });
+        }
+    }
+
+    private Rental findActiveRental(ArrayList<Rental> rentals, boolean overdue,
+            LocalDateTime now) {
+        for (Rental rental : rentals) {
+            if (!Constants.RENTAL_ACTIVE.equals(rental.getStatus())
+                    || rental.getActualPickupDatetime() == null
+                    || rental.getExpectedReturnDatetime() == null
+                    || !rental.getActualPickupDatetime().isBefore(
+                    rental.getExpectedReturnDatetime())) {
+                continue;
+            }
+            boolean isOverdue = !rental.getExpectedReturnDatetime().isAfter(now);
+            if (isOverdue == overdue) {
+                return rental;
+            }
+        }
+        return null;
+    }
+
     private void compareAvailabilitySources(AvailabilityWindow window) throws Exception {
+        compareAvailabilitySources(window, null);
+    }
+
+    private void compareAvailabilitySources(AvailabilityWindow window,
+            Integer mustBeBlockedVehicleId) throws Exception {
         HashSet<Integer> serviceSearch = idsFromRows(availabilityService
                 .searchAvailableVehicles(window.from, window.to, null, null));
         HashSet<Integer> storedProcedure = idsFromRows(reportDao
@@ -415,6 +576,14 @@ public final class ConsoleTest {
         }
         if (serviceSearch.equals(storedProcedure) && serviceSearch.equals(daoSearch)
                 && serviceSearch.equals(javaRecheck)) {
+            if (mustBeBlockedVehicleId != null
+                    && (serviceSearch.contains(mustBeBlockedVehicleId)
+                    || storedProcedure.contains(mustBeBlockedVehicleId)
+                    || daoSearch.contains(mustBeBlockedVehicleId)
+                    || javaRecheck.contains(mustBeBlockedVehicleId))) {
+                throw new AssertionError("Active rental vehicle #" + mustBeBlockedVehicleId
+                        + " was returned as available for the test window.");
+            }
             return;
         }
         throw new AssertionError(availabilityMismatch(window, vehicles, serviceSearch,
@@ -679,6 +848,12 @@ public final class ConsoleTest {
         return !customerDao.search(email, null, null, "email", true, 1, 5).isEmpty();
     }
 
+    private long[] customerRelatedCounts() throws LfrlmsException {
+        return new long[] {customerDao.countAll(), individualCustomerDao.countAll(),
+            corporateCustomerDao.countAll(), rentalDao.countAll(), leaseDao.countAll(),
+            paymentDao.countAll()};
+    }
+
     private IndividualCustomer newIndividual(LocalDate expiry) {
         String token = Long.toHexString(System.nanoTime()).toUpperCase();
         String phone = Long.toString(1000000000L + (System.nanoTime() % 8999999999L));
@@ -725,6 +900,8 @@ public final class ConsoleTest {
 
     private void printUnavailableDependentResults() {
         String[] names = new String[] {
+            "customer with rental history cannot be deleted",
+            "customer without history can be deleted",
             "creating a Confirmed rental",
             "overlapping rental is rejected",
             "overdue Active rental blocks its vehicle",
@@ -734,7 +911,8 @@ public final class ConsoleTest {
             "payment with both references is rejected",
             "individual licence expiring before rental end is rejected",
             "corporate rental without a chauffeur is rejected",
-            "failed subtype insert rolls back with no customer parent left behind",
+            "duplicate licence rolls back parent and leaves row counts unchanged",
+            "duplicate email is rejected and leaves row counts unchanged",
             "Java charge estimate matches fn_rental_charge",
             "LocalDateTime round-trip preserves wall time"
         };

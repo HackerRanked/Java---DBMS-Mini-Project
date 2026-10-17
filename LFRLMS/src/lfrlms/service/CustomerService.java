@@ -7,6 +7,7 @@ import lfrlms.dao.CorporateCustomerDao;
 import lfrlms.dao.CustomerDao;
 import lfrlms.dao.IndividualCustomerDao;
 import lfrlms.exception.LfrlmsException;
+import lfrlms.exception.RecordInUseException;
 import lfrlms.exception.ValidationException;
 import lfrlms.model.CorporateCustomer;
 import lfrlms.model.Customer;
@@ -15,6 +16,9 @@ import lfrlms.util.Validator;
 
 /** Saves each customer parent row and its single subtype in one transaction. */
 public class CustomerService extends AbstractService {
+    public static final String HISTORY_DELETE_MESSAGE =
+            "This customer has transaction history and cannot be deleted.";
+
     private final CustomerDao customerDao;
     private final IndividualCustomerDao individualDao;
     private final CorporateCustomerDao corporateDao;
@@ -64,11 +68,17 @@ public class CustomerService extends AbstractService {
         try (Connection connection = openConnection()) {
             beginTransaction(connection);
             try {
+                if (customerDao.hasTransactionHistory(connection, customerId)) {
+                    throw new RecordInUseException(HISTORY_DELETE_MESSAGE);
+                }
                 individualDao.delete(connection, customerId);
                 corporateDao.delete(connection, customerId);
                 boolean deleted = customerDao.delete(connection, customerId);
                 commit(connection);
                 return deleted;
+            } catch (RecordInUseException exception) {
+                rollback(connection, exception);
+                throw new RecordInUseException(HISTORY_DELETE_MESSAGE, exception);
             } catch (LfrlmsException exception) {
                 rollback(connection, exception);
                 throw exception;
@@ -79,6 +89,13 @@ public class CustomerService extends AbstractService {
         } catch (SQLException exception) {
             throw databaseFailure("close the customer transaction", exception);
         }
+    }
+
+    public boolean canDelete(int customerId) throws LfrlmsException {
+        if (customerId <= 0 || customerDao.findById(customerId) == null) {
+            throw new ValidationException("The customer record no longer exists.");
+        }
+        return !customerDao.hasTransactionHistory(customerId);
     }
 
     public Customer findById(int customerId) throws LfrlmsException {

@@ -41,6 +41,7 @@ public class CustomersPanel extends JPanel {
     private final CustomerService customerService;
     private final ReportService reportService;
     private final BackgroundTask<SearchData> searchTask;
+    private final BackgroundTask<Boolean> deleteCheckTask;
     private final BackgroundTask<Integer> writeTask;
     private final JTextField textField;
     private final JComboBox<String> typeBox;
@@ -62,6 +63,7 @@ public class CustomersPanel extends JPanel {
         this.customerService = customerService;
         this.reportService = reportService;
         searchTask = new BackgroundTask<SearchData>();
+        deleteCheckTask = new BackgroundTask<Boolean>();
         writeTask = new BackgroundTask<Integer>();
         textField = new JTextField(24);
         typeBox = new JComboBox<String>(new String[] {
@@ -345,6 +347,31 @@ public class CustomersPanel extends JPanel {
         if (customer == null) {
             return;
         }
+        deleteCheckTask.execute(this, new BackgroundTask.Work<Boolean>() {
+            @Override
+            public Boolean run() throws LfrlmsException {
+                return Boolean.valueOf(customerService.canDelete(customer.getCustomerId()));
+            }
+        }, new BackgroundTask.Completion<Boolean>() {
+            @Override
+            public void completed(Boolean allowed, Exception failure) {
+                if (failure != null) {
+                    GuiSupport.showFailure(CustomersPanel.this, "Check customer deletion",
+                            failure, null);
+                    return;
+                }
+                if (!Boolean.TRUE.equals(allowed)) {
+                    JOptionPane.showMessageDialog(CustomersPanel.this,
+                            CustomerService.HISTORY_DELETE_MESSAGE,
+                            "Customer cannot be deleted", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                confirmAndDelete(customer);
+            }
+        });
+    }
+
+    private void confirmAndDelete(final Customer customer) {
         int choice = JOptionPane.showConfirmDialog(this,
                 "Permanently delete " + customer.getDisplayName() + "?",
                 "Confirm customer deletion", JOptionPane.YES_NO_OPTION,

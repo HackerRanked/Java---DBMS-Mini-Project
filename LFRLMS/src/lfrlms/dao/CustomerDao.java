@@ -93,6 +93,25 @@ public class CustomerDao extends AbstractDao {
         return queryCount("SELECT COUNT(*) AS row_count FROM customer");
     }
 
+    public boolean hasTransactionHistory(int customerId) throws LfrlmsException {
+        String sql = "SELECT COUNT(*) AS transaction_count FROM ("
+                + "SELECT rental_id FROM rental WHERE customer_id = ? "
+                + "UNION ALL SELECT lease_id FROM lease WHERE customer_id = ?"
+                + ") AS customer_transactions";
+        return queryCount(sql, Integer.valueOf(customerId), Integer.valueOf(customerId)) > 0;
+    }
+
+    /** Checks transaction history on a caller-owned transaction connection. */
+    public boolean hasTransactionHistory(java.sql.Connection connection, int customerId)
+            throws LfrlmsException {
+        String sql = "SELECT COUNT(*) AS transaction_count FROM ("
+                + "SELECT rental_id FROM rental WHERE customer_id = ? "
+                + "UNION ALL SELECT lease_id FROM lease WHERE customer_id = ?"
+                + ") AS customer_transactions";
+        return queryCount(connection, sql, Integer.valueOf(customerId),
+                Integer.valueOf(customerId)) > 0;
+    }
+
     public boolean update(Customer customer) throws LfrlmsException {
         String sql = "UPDATE customer SET customer_type = ?, first_name = ?, last_name = ?, "
                 + "email = ?, phone = ?, street = ?, city = ?, pincode = ? "
