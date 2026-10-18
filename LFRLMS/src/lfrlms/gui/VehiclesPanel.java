@@ -92,12 +92,12 @@ public class VehiclesPanel extends JPanel {
         lookupTask = new BackgroundTask<LookupData>();
         writeTask = new BackgroundTask<Integer>();
         textField = new JTextField(14);
-        minimumRentalField = new JTextField(6);
+        minimumRentalField = new JTextField(10);
         maximumRentalField = new JTextField(6);
         minimumLeaseField = new JTextField(6);
         maximumLeaseField = new JTextField(6);
-        availableFromField = new HintTextField(18, "yyyy-MM-dd HH:mm");
-        availableToField = new HintTextField(18, "yyyy-MM-dd HH:mm");
+        availableFromField = new HintTextField(21, "yyyy-MM-dd HH:mm");
+        availableToField = new HintTextField(21, "yyyy-MM-dd HH:mm");
         availableFromField.setToolTipText("Format: yyyy-MM-dd HH:mm (24-hour time).");
         availableToField.setToolTipText("Format: yyyy-MM-dd HH:mm (24-hour time).");
         brandBox = new JComboBox<LookupFilterChoice>();

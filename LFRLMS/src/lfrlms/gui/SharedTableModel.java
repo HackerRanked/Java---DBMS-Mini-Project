@@ -2,8 +2,10 @@ package lfrlms.gui;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Vector;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -60,6 +62,9 @@ public class SharedTableModel extends DefaultTableModel {
     private void applyColumnRenderers(JTable table) {
         for (int column = 0; column < getColumnCount(); column++) {
             String name = getColumnName(column).toLowerCase();
+            if (isDateTimeColumn(name, column)) {
+                table.getColumnModel().getColumn(column).setPreferredWidth(170);
+            }
             if (name.contains("status")) {
                 table.getColumnModel().getColumn(column)
                         .setCellRenderer(new StatusColourRenderer());
@@ -68,6 +73,38 @@ public class SharedTableModel extends DefaultTableModel {
                         .setCellRenderer(new ZebraDateTimeRenderer());
             }
         }
+    }
+
+    private boolean isDateTimeColumn(String name, int column) {
+        if (name.contains("datetime") || name.contains("date/time")
+                || name.contains("start") || name.contains("return")
+                || name.contains("pickup") || name.contains("time")) {
+            return true;
+        }
+        if (name.equals("payment date")) {
+            return true;
+        }
+        for (int row = 0; row < getRowCount(); row++) {
+            if (isDateTimeValue(getValueAt(row, column))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isDateTimeValue(Object value) {
+        if (value instanceof LocalDateTime || value instanceof Timestamp) {
+            return true;
+        }
+        if (value instanceof CharSequence) {
+            try {
+                LocalDateTime.parse(value.toString().trim().replace(' ', 'T'));
+                return true;
+            } catch (DateTimeParseException exception) {
+                return false;
+            }
+        }
+        return false;
     }
 
     private static class ZebraDateTimeRenderer extends DefaultTableCellRenderer {
@@ -86,11 +123,28 @@ public class SharedTableModel extends DefaultTableModel {
 
         @Override
         protected void setValue(Object value) {
+            LocalDateTime dateTime = toDateTime(value);
+            setText(dateTime == null
+                    ? (value == null ? "" : value.toString())
+                    : dateTime.format(DATE_TIME_FORMAT));
+        }
+
+        private LocalDateTime toDateTime(Object value) {
             if (value instanceof LocalDateTime) {
-                setText(((LocalDateTime) value).format(DATE_TIME_FORMAT));
-            } else {
-                setText(value == null ? "" : value.toString());
+                return (LocalDateTime) value;
             }
+            if (value instanceof Timestamp) {
+                return ((Timestamp) value).toLocalDateTime();
+            }
+            if (value instanceof CharSequence) {
+                try {
+                    return LocalDateTime.parse(
+                            value.toString().trim().replace(' ', 'T'));
+                } catch (DateTimeParseException exception) {
+                    return null;
+                }
+            }
+            return null;
         }
     }
 }
