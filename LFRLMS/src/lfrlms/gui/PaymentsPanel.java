@@ -73,7 +73,7 @@ public class PaymentsPanel extends JPanel {
         outstandingBox = new JCheckBox("Outstanding only");
         tableModel = new SharedTableModel(new String[] {"ID", "Rental ID", "Lease ID",
             "Amount", "Method", "Payment date", "Status"});
-        table = new JTable(tableModel);
+        table = SharedTableModel.createTable(tableModel);
         pagination = new PaginationBar();
         messageLabel = new JLabel("Loading payments...");
         searchTimer = new javax.swing.Timer(300, new ActionListener() {
@@ -94,6 +94,7 @@ public class PaymentsPanel extends JPanel {
 
     private void buildPanel() {
         setLayout(new BorderLayout(6, 6));
+        Theme.applyPadding(this);
         add(buildFilters(), BorderLayout.NORTH);
         table.setFillsViewportHeight(true);
         add(new JScrollPane(table), BorderLayout.CENTER);
@@ -102,6 +103,7 @@ public class PaymentsPanel extends JPanel {
 
     private JPanel buildFilters() {
         JPanel filters = new JPanel(new GridBagLayout());
+        Theme.applyPadding(filters);
         addFilter(filters, 0, 0, "Customer / vehicle", textField);
         addFilter(filters, 0, 1, "Status", statusBox);
         addFilter(filters, 0, 2, "From", fromField);

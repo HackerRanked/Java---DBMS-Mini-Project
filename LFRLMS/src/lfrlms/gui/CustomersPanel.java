@@ -73,7 +73,7 @@ public class CustomersPanel extends JPanel {
             "Expiring within 90 days"});
         tableModel = new SharedTableModel(new String[] {"ID", "Type", "Name / Company",
             "Contact", "Email", "Phone", "Licence / GST", "Licence expiry"});
-        table = new JTable(tableModel);
+        table = SharedTableModel.createTable(tableModel);
         pagination = new PaginationBar();
         messageLabel = new JLabel(" ");
         searchTimer = new javax.swing.Timer(300, new ActionListener() {
@@ -94,7 +94,9 @@ public class CustomersPanel extends JPanel {
 
     private void buildPanel() {
         setLayout(new BorderLayout(6, 6));
+        Theme.applyPadding(this);
         JPanel filters = new JPanel(new GridBagLayout());
+        Theme.applyPadding(filters);
         addFilter(filters, 0, "Search name, phone, email, company or licence", textField);
         addFilter(filters, 1, "Type", typeBox);
         addFilter(filters, 2, "Licence expiry", expiryBox);

@@ -58,7 +58,7 @@ public class VehicleDetailsDialog extends JDialog {
         addFact(facts, "Status", vehicle.getStatus());
         addFact(facts, "Rental rate / day", money(vehicle.getRentalRate()));
         addFact(facts, "Lease rate / month", money(vehicle.getLeaseRate()));
-        JTable table = new JTable(tableModel);
+        JTable table = SharedTableModel.createTable(tableModel);
         table.setFillsViewportHeight(true);
         JScrollPane scroll = new JScrollPane(table);
         scroll.setPreferredSize(new Dimension(690, 250));
@@ -68,6 +68,7 @@ public class VehicleDetailsDialog extends JDialog {
         center.add(messageLabel, BorderLayout.SOUTH);
         add(facts, BorderLayout.NORTH);
         add(center, BorderLayout.CENTER);
+        Theme.applyDialogPadding(this);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(740, 430);
         setLocationRelativeTo(getOwner());

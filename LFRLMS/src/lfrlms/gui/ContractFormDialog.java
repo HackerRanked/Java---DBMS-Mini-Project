@@ -43,6 +43,9 @@ import lfrlms.util.DateUtil;
  * Concept: Swing dialog, service calls and polymorphic contract models.
  */
 public class ContractFormDialog extends JDialog {
+    private static final Color ERROR_COLOR = new Color(150, 45, 35);
+    private static final Color SUCCESS_COLOR = new Color(35, 120, 55);
+    private static final Color NEUTRAL_COLOR = Theme.TEXT_COLOR;
     private static final DateTimeFormatter INPUT_DATE_TIME =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter INPUT_DATE =
@@ -185,11 +188,11 @@ public class ContractFormDialog extends JDialog {
         JPanel information = new JPanel(new GridBagLayout());
         addRow(information, 0, "", estimateLabel);
         addRow(information, 1, "", messageLabel);
-        messageLabel.setForeground(new Color(150, 45, 35));
         bottom.add(information, BorderLayout.CENTER);
         bottom.add(buttons, BorderLayout.SOUTH);
         add(fields, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
+        Theme.applyDialogPadding(this);
         getRootPane().setDefaultButton(saveButton);
         installEscapeAction();
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -252,6 +255,7 @@ public class ContractFormDialog extends JDialog {
             @Override
             public void completed(LookupData data, Exception failure) {
                 if (failure != null) {
+                    messageLabel.setForeground(NEUTRAL_COLOR);
                     messageLabel.setText(" ");
                     GuiSupport.showFailure(ContractFormDialog.this, "Load rental choices",
                             failure, new Runnable() {
@@ -294,11 +298,13 @@ public class ContractFormDialog extends JDialog {
         try {
             period = readPeriod();
         } catch (RuntimeException exception) {
+            messageLabel.setForeground(ERROR_COLOR);
             messageLabel.setText(exception.getMessage());
             vehicleBox.removeAllItems();
             updateEstimate();
             return;
         }
+        messageLabel.setForeground(NEUTRAL_COLOR);
         messageLabel.setText("Checking vehicle availability...");
         availabilityTask.execute(this,
                 new BackgroundTask.Work<ArrayList<HashMap<String, Object>>>() {
@@ -312,6 +318,7 @@ public class ContractFormDialog extends JDialog {
                     public void completed(ArrayList<HashMap<String, Object>> rows,
                             Exception failure) {
                         if (failure != null) {
+                            messageLabel.setForeground(NEUTRAL_COLOR);
                             messageLabel.setText(" ");
                             GuiSupport.showFailure(ContractFormDialog.this,
                                     "Check vehicle availability", failure, new Runnable() {
@@ -339,10 +346,12 @@ public class ContractFormDialog extends JDialog {
         }
         selectVehicle(previousId);
         if (vehicleBox.getSelectedItem() == null) {
+            messageLabel.setForeground(ERROR_COLOR);
             messageLabel.setText(preselectedVehicleId == null
                     ? "No vehicles are available for this period."
                     : "The selected vehicle is unavailable for this period.");
         } else {
+            messageLabel.setForeground(SUCCESS_COLOR);
             messageLabel.setText("Availability checked. The service rechecks before saving.");
         }
         updateEstimate();
@@ -444,6 +453,7 @@ public class ContractFormDialog extends JDialog {
             leaseStartDate = rentalMode ? null : parseInputDate(startField.getText());
             leaseEndDate = rentalMode ? null : parseInputDate(endField.getText());
         } catch (RuntimeException exception) {
+            messageLabel.setForeground(ERROR_COLOR);
             messageLabel.setText(rentalMode
                     ? "Use yyyy-MM-dd HH:mm for rental dates."
                     : "Use yyyy-MM-dd for lease dates.");
@@ -456,10 +466,12 @@ public class ContractFormDialog extends JDialog {
             try {
                 deposit = new BigDecimal(depositField.getText().trim());
             } catch (NumberFormatException exception) {
+                messageLabel.setForeground(ERROR_COLOR);
                 messageLabel.setText("Enter a valid non-negative deposit.");
                 return;
             }
             if (deposit.signum() < 0) {
+                messageLabel.setForeground(ERROR_COLOR);
                 messageLabel.setText("Deposit must be zero or greater.");
                 return;
             }
@@ -468,6 +480,7 @@ public class ContractFormDialog extends JDialog {
                 || (rentalMode && "Walk-in".equals(kindBox.getSelectedItem())
                 && (odometerField.getText().trim().isEmpty()
                 || conditionField.getText().trim().isEmpty()))) {
+            messageLabel.setForeground(ERROR_COLOR);
             messageLabel.setText("Complete the customer, vehicle and pickup details.");
             return;
         }
@@ -478,10 +491,12 @@ public class ContractFormDialog extends JDialog {
         final boolean walkIn = rentalMode && "Walk-in".equals(kindBox.getSelectedItem());
         final Integer odometer = parseOdometer(walkIn);
         if (walkIn && odometer == null) {
+            messageLabel.setForeground(ERROR_COLOR);
             messageLabel.setText("Enter a non-negative odometer reading.");
             return;
         }
         final String condition = conditionField.getText().trim();
+        messageLabel.setForeground(NEUTRAL_COLOR);
         messageLabel.setText("Saving...");
         saveTask.execute(this, new BackgroundTask.Work<Integer>() {
             @Override
@@ -501,13 +516,14 @@ public class ContractFormDialog extends JDialog {
             @Override
             public void completed(Integer id, Exception failure) {
                 if (failure != null) {
+                    messageLabel.setForeground(NEUTRAL_COLOR);
                     messageLabel.setText(" ");
                     GuiSupport.showFailure(ContractFormDialog.this,
                             rentalMode ? "Create rental" : "Schedule lease", failure, null);
                     return;
                 }
                 saved = true;
-                messageLabel.setForeground(new Color(35, 120, 55));
+                messageLabel.setForeground(SUCCESS_COLOR);
                 messageLabel.setText((rentalMode ? "Rental #" : "Lease #") + id + " saved.");
                 dispose();
             }
@@ -532,7 +548,8 @@ public class ContractFormDialog extends JDialog {
     }
 
     private void addRow(JPanel panel, int row, String title, JComponent field) {
-        addRow(panel, row, new JLabel(title + ":"), field);
+        addRow(panel, row, new JLabel(title == null || title.trim().isEmpty()
+                ? "" : title + ":"), field);
     }
 
     private void addRow(JPanel panel, int row, JLabel title, JComponent field) {

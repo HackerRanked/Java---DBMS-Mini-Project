@@ -75,7 +75,7 @@ public class LeasesPanel extends JPanel {
         outstandingBox = new JCheckBox("Outstanding only");
         tableModel = new SharedTableModel(new String[] {"ID", "Customer ID", "Vehicle ID",
             "Start date", "End date", "Monthly charge", "Deposit", "Status"});
-        table = new JTable(tableModel);
+        table = SharedTableModel.createTable(tableModel);
         pagination = new PaginationBar();
         messageLabel = new JLabel("Loading leases...");
         searchTimer = new javax.swing.Timer(300, new ActionListener() {
@@ -96,6 +96,7 @@ public class LeasesPanel extends JPanel {
 
     private void buildPanel() {
         setLayout(new BorderLayout(6, 6));
+        Theme.applyPadding(this);
         add(buildFilters(), BorderLayout.NORTH);
         table.setFillsViewportHeight(true);
         add(new JScrollPane(table), BorderLayout.CENTER);
@@ -104,6 +105,7 @@ public class LeasesPanel extends JPanel {
 
     private JPanel buildFilters() {
         JPanel filters = new JPanel(new GridBagLayout());
+        Theme.applyPadding(filters);
         addFilter(filters, 0, 0, "Customer / vehicle", textField);
         addFilter(filters, 0, 1, "Status", statusBox);
         addFilter(filters, 0, 2, "From", fromField);

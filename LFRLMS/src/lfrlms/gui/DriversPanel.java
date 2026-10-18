@@ -48,7 +48,7 @@ public class DriversPanel extends JPanel {
         writeTask = new BackgroundTask<Integer>();
         tableModel = new SharedTableModel(new String[] {
             "ID", "First name", "Last name", "Phone", "Licence number", "Status"});
-        table = new JTable(tableModel);
+        table = SharedTableModel.createTable(tableModel);
         pagination = new PaginationBar();
         messageLabel = new javax.swing.JLabel("Loading drivers...");
         visibleDrivers = new ArrayList<Driver>();
@@ -61,6 +61,7 @@ public class DriversPanel extends JPanel {
 
     private void buildPanel() {
         setLayout(new BorderLayout(6, 6));
+        Theme.applyPadding(this);
         javax.swing.JLabel heading = new javax.swing.JLabel(
                 "Chauffeur records — use Add or Edit to manage driver details.");
         heading.setBorder(javax.swing.BorderFactory.createEmptyBorder(8, 8, 4, 8));

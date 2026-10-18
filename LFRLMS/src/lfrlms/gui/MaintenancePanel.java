@@ -76,7 +76,7 @@ public class MaintenancePanel extends JPanel {
         toField.setToolTipText("Service date to: yyyy-MM-dd");
         tableModel = new SharedTableModel(new String[] {"ID", "Vehicle ID", "Service date",
             "Type", "Description", "Cost", "Next service", "Completed", "Status"});
-        table = new JTable(tableModel);
+        table = SharedTableModel.createTable(tableModel);
         pagination = new PaginationBar();
         messageLabel = new JLabel("Loading maintenance records...");
         searchTimer = new javax.swing.Timer(300, new ActionListener() {
@@ -97,6 +97,7 @@ public class MaintenancePanel extends JPanel {
 
     private void buildPanel() {
         setLayout(new BorderLayout(6, 6));
+        Theme.applyPadding(this);
         add(buildFilters(), BorderLayout.NORTH);
         table.setFillsViewportHeight(true);
         add(new JScrollPane(table), BorderLayout.CENTER);
@@ -105,6 +106,7 @@ public class MaintenancePanel extends JPanel {
 
     private JPanel buildFilters() {
         JPanel filters = new JPanel(new GridBagLayout());
+        Theme.applyPadding(filters);
         addFilter(filters, 0, 0, "Vehicle / service", textField);
         addFilter(filters, 0, 1, "Status", statusBox);
         addFilter(filters, 0, 2, "From", fromField);

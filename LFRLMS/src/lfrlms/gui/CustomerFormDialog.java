@@ -132,6 +132,7 @@ public class CustomerFormDialog extends JDialog {
         center.add(subtypeCards, BorderLayout.CENTER);
         add(center, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
+        Theme.applyDialogPadding(this);
         getRootPane().setDefaultButton(saveButton);
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke("ESCAPE"), "close-dialog");

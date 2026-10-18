@@ -83,7 +83,7 @@ public class RentalsPanel extends JPanel {
         tableModel = new SharedTableModel(new String[] {"ID", "Customer ID", "Vehicle ID",
             "Driver ID", "Scheduled start", "Expected return", "Actual pickup",
             "Actual return", "Final charges", "Status"});
-        table = new JTable(tableModel);
+        table = SharedTableModel.createTable(tableModel);
         pagination = new PaginationBar();
         messageLabel = new JLabel("Loading rentals...");
         searchTimer = new javax.swing.Timer(300, new ActionListener() {
@@ -104,6 +104,7 @@ public class RentalsPanel extends JPanel {
 
     private void buildPanel() {
         setLayout(new BorderLayout(6, 6));
+        Theme.applyPadding(this);
         add(buildFilters(), BorderLayout.NORTH);
         table.setFillsViewportHeight(true);
         add(new JScrollPane(table), BorderLayout.CENTER);
@@ -112,6 +113,7 @@ public class RentalsPanel extends JPanel {
 
     private JPanel buildFilters() {
         JPanel filters = new JPanel(new GridBagLayout());
+        Theme.applyPadding(filters);
         addFilter(filters, 0, 0, "Customer / vehicle", textField);
         addFilter(filters, 0, 1, "Status", statusBox);
         addFilter(filters, 0, 2, "From", fromField);

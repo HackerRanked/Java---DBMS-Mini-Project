@@ -71,7 +71,7 @@ public class CustomerDetailsDialog extends JDialog {
             CorporateCustomer corporate = (CorporateCustomer) customer;
             addFact(summary, "GST number", corporate.getGstNo());
         }
-        JTable table = new JTable(tableModel);
+        JTable table = SharedTableModel.createTable(tableModel);
         table.setFillsViewportHeight(true);
         JScrollPane scroll = new JScrollPane(table);
         scroll.setPreferredSize(new Dimension(780, 300));
@@ -82,6 +82,7 @@ public class CustomerDetailsDialog extends JDialog {
         add(summary, BorderLayout.NORTH);
         add(scroll, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
+        Theme.applyDialogPadding(this);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         setSize(830, 570);
         setLocationRelativeTo(getOwner());

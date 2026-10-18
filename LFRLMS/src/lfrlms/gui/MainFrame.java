@@ -95,6 +95,7 @@ public class MainFrame extends JFrame {
 
     private JPanel buildStatusBar() {
         JPanel bar = new JPanel(new BorderLayout(8, 0));
+        Theme.applyPadding(bar);
         JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 3));
         left.add(clockLabel);
         left.add(databaseLabel);
@@ -116,6 +117,7 @@ public class MainFrame extends JFrame {
 
     private JPanel placeholder(String text) {
         JPanel panel = new JPanel(new BorderLayout());
+        Theme.applyPadding(panel);
         JLabel label = new JLabel(text, SwingConstants.CENTER);
         panel.add(label, BorderLayout.CENTER);
         return panel;
@@ -152,11 +154,11 @@ public class MainFrame extends JFrame {
     }
 
     private String alertSummary(HashMap<String, Object> summary) {
-        return "Alerts overdue/upcoming/leases/maintenance/licences: "
-                + count(summary, "overdueRentals") + "/"
-                + count(summary, "upcomingRentals") + "/" + count(summary, "leasesEnding")
-                + "/" + count(summary, "maintenanceDue") + "/"
-                + count(summary, "licensesExpiring");
+        return "Alerts - Overdue " + count(summary, "overdueRentals")
+                + " | Upcoming " + count(summary, "upcomingRentals")
+                + " | Leases " + count(summary, "leasesEnding")
+                + " | Maintenance " + count(summary, "maintenanceDue")
+                + " | Licences " + count(summary, "licensesExpiring");
     }
 
     private int count(HashMap<String, Object> summary, String name) {

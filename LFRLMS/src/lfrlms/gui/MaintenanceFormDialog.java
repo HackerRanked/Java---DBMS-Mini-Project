@@ -2,6 +2,7 @@ package lfrlms.gui;
 
 import java.awt.BorderLayout;
 import java.awt.Dialog;
+import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -31,6 +32,7 @@ import lfrlms.util.DateUtil;
  * Concept: Swing forms, copy-safe model input and asynchronous lookups.
  */
 public class MaintenanceFormDialog extends JDialog {
+    private static final Color ERROR_COLOR = new Color(150, 45, 35);
     private final VehicleService vehicleService;
     private final BackgroundTask<ArrayList<Vehicle>> loadTask;
     private final JComboBox<VehicleChoice> vehicleBox;
@@ -95,6 +97,7 @@ public class MaintenanceFormDialog extends JDialog {
         bottom.add(buttons, BorderLayout.SOUTH);
         add(fields, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
+        Theme.applyDialogPadding(this);
         getRootPane().setDefaultButton(openButton);
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke("ESCAPE"), "close-dialog");
@@ -120,6 +123,7 @@ public class MaintenanceFormDialog extends JDialog {
             @Override
             public void completed(ArrayList<Vehicle> vehicles, Exception failure) {
                 if (failure != null) {
+                    messageLabel.setForeground(Theme.TEXT_COLOR);
                     messageLabel.setText(" ");
                     GuiSupport.showFailure(MaintenanceFormDialog.this,
                             "Load maintenance vehicles", failure, new Runnable() {
@@ -134,8 +138,13 @@ public class MaintenanceFormDialog extends JDialog {
                 for (Vehicle vehicle : vehicles) {
                     vehicleBox.addItem(new VehicleChoice(vehicle));
                 }
-                messageLabel.setText(vehicles.isEmpty()
-                        ? "No vehicles are available in the list." : " ");
+                if (vehicles.isEmpty()) {
+                    messageLabel.setForeground(ERROR_COLOR);
+                    messageLabel.setText("No vehicles are available in the list.");
+                } else {
+                    messageLabel.setForeground(Theme.TEXT_COLOR);
+                    messageLabel.setText(" ");
+                }
             }
         });
     }
@@ -143,6 +152,7 @@ public class MaintenanceFormDialog extends JDialog {
     private void capture() {
         VehicleChoice choice = (VehicleChoice) vehicleBox.getSelectedItem();
         if (choice == null) {
+            messageLabel.setForeground(ERROR_COLOR);
             messageLabel.setText("Choose a vehicle.");
             return;
         }
@@ -164,6 +174,7 @@ public class MaintenanceFormDialog extends JDialog {
             maintenance.setNextServiceDate(nextService);
             dispose();
         } catch (RuntimeException exception) {
+            messageLabel.setForeground(ERROR_COLOR);
             messageLabel.setText("Check the date, service type and non-negative cost.");
         }
     }

@@ -87,6 +87,7 @@ public class RentalActionDialog extends JDialog {
         bottom.add(buttons, BorderLayout.SOUTH);
         add(fields, BorderLayout.CENTER);
         add(bottom, BorderLayout.SOUTH);
+        Theme.applyDialogPadding(this);
         getRootPane().setDefaultButton(saveButton);
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke("ESCAPE"), "close-dialog");

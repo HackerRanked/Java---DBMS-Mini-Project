@@ -110,7 +110,7 @@ public class VehiclesPanel extends JPanel {
         tableModel = new SharedTableModel(new String[] {"ID", "Registration", "Brand",
             "Category", "Branch", "Model", "Year", "Rental / day", "Lease / month",
             "Status"});
-        table = new JTable(tableModel);
+        table = SharedTableModel.createTable(tableModel);
         pagination = new PaginationBar();
         messageLabel = new JLabel("Loading lookup filters...");
         searchTimer = new javax.swing.Timer(300, new ActionListener() {
@@ -137,6 +137,7 @@ public class VehiclesPanel extends JPanel {
 
     private void buildPanel() {
         setLayout(new BorderLayout(6, 6));
+        Theme.applyPadding(this);
         add(buildFilters(), BorderLayout.NORTH);
         table.setFillsViewportHeight(true);
         table.setAutoCreateRowSorter(false);
@@ -147,6 +148,7 @@ public class VehiclesPanel extends JPanel {
 
     private JPanel buildFilters() {
         JPanel filters = new JPanel(new GridBagLayout());
+        Theme.applyPadding(filters);
         addFilter(filters, 0, 0, "Text", textField);
         addFilter(filters, 0, 1, "Brand", brandBox);
         addFilter(filters, 0, 2, "Category", categoryBox);
