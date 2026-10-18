@@ -32,11 +32,11 @@ public abstract class AbstractDao {
     protected final QueryLog queryLog;
 
     protected AbstractDao() {
-        this(new QueryLog());
+        this(QueryLog.getShared());
     }
 
     protected AbstractDao(QueryLog queryLog) {
-        this.queryLog = queryLog == null ? new QueryLog() : queryLog;
+        this.queryLog = queryLog == null ? QueryLog.getShared() : queryLog;
     }
 
     protected ArrayList<HashMap<String, Object>> queryRows(String sql,
@@ -298,9 +298,8 @@ public abstract class AbstractDao {
     }
 
     private void recordQuery(String sql, Object[] parameters, long started, int rows) {
-        String parameterText = java.util.Arrays.deepToString(parameters);
         long elapsedMillis = (System.nanoTime() - started) / 1000000L;
-        queryLog.add(sql, parameterText, elapsedMillis, rows);
+        queryLog.add(sql, parameters, elapsedMillis, rows);
     }
 
     private LfrlmsException translate(SQLException exception, String action) {

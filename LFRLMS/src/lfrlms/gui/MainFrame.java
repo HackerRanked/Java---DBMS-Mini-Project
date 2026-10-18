@@ -77,7 +77,7 @@ public class MainFrame extends JFrame {
         tabs.addTab("Maintenance", new MaintenancePanel());
         tabs.addTab("Drivers", new DriversPanel());
         tabs.addTab("Reports", new ReportsPanel());
-        tabs.addTab("DBMS Insights", placeholder("Database insights will be added later."));
+        tabs.addTab("DBMS Insights", new DbmsInsightsPanel());
         add(tabs, BorderLayout.CENTER);
         add(buildStatusBar(), BorderLayout.SOUTH);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
