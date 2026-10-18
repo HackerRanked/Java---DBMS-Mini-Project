@@ -27,4 +27,8 @@ public class DashboardService {
         summary.putAll(alerts);
         return summary;
     }
+
+    public HashMap<String, Object> getDashboardSummary() throws LfrlmsException {
+        return dashboardDao.getSummary();
+    }
 }

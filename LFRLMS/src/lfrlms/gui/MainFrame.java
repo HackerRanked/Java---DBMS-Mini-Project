@@ -6,8 +6,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -15,9 +13,9 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.SwingConstants;
-import javax.swing.Timer;
 import lfrlms.exception.LfrlmsException;
-import lfrlms.service.DashboardService;
+import lfrlms.service.AlertService;
+import lfrlms.service.AlertSnapshot;
 import lfrlms.util.AppLogger;
 
 /**
@@ -25,48 +23,52 @@ import lfrlms.util.AppLogger;
  * Concept: Swing tabs, layout managers and safe window shutdown.
  */
 public class MainFrame extends JFrame {
-    private static final DateTimeFormatter CLOCK_FORMAT =
-            DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss");
-    private final DashboardService dashboardService;
-    private final BackgroundTask<HashMap<String, Object>> statusTask;
     private final JLabel clockLabel;
     private final JLabel databaseLabel;
     private final JLabel alertLabel;
     private final JLabel messageLabel;
-    private final Timer clockTimer;
-    private final Timer statusTimer;
+    private final DashboardPanel dashboardPanel;
+    private final ClockThread clockThread;
+    private final AlertMonitor alertMonitor;
+    private final Thread alertMonitorThread;
 
     public MainFrame() {
         super("Luxury Fleet Rental & Leasing Management System");
-        dashboardService = new DashboardService();
-        statusTask = new BackgroundTask<HashMap<String, Object>>();
         clockLabel = new JLabel();
         databaseLabel = new JLabel("Database: checking...");
         alertLabel = new JLabel("Alerts: checking...");
         messageLabel = new JLabel(" ");
-        clockTimer = new Timer(1000, new ActionListener() {
+        dashboardPanel = new DashboardPanel();
+        clockThread = new ClockThread(clockLabel);
+        alertMonitor = new AlertMonitor(new AlertService(), new AlertMonitor.Listener() {
             @Override
-            public void actionPerformed(ActionEvent event) {
-                updateClock();
+            public void alertsUpdated(AlertSnapshot snapshot) {
+                databaseLabel.setText("Database: connected");
+                alertLabel.setText(alertSummary(snapshot.getCounts()));
+                messageLabel.setText(" ");
+                dashboardPanel.updateAlerts(snapshot);
+            }
+
+            @Override
+            public void alertCheckFailed(LfrlmsException failure) {
+                databaseLabel.setText("Database: unavailable");
+                alertLabel.setText("Alerts: unavailable");
+                messageLabel.setText(
+                        "Cannot connect. Check MySQL and config/db.properties.");
+                dashboardPanel.showAlertFailure();
             }
         });
-        statusTimer = new Timer(60000, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent event) {
-                refreshStatus();
-            }
-        });
+        alertMonitorThread = new Thread(alertMonitor, "lfrlms-alert-monitor");
+        alertMonitorThread.setDaemon(true);
         buildWindow();
-        updateClock();
-        clockTimer.start();
-        statusTimer.start();
-        refreshStatus();
+        clockThread.start();
+        alertMonitorThread.start();
     }
 
     private void buildWindow() {
         setLayout(new BorderLayout());
         JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("Dashboard", placeholder("Dashboard summaries will be added later."));
+        tabs.addTab("Dashboard", dashboardPanel);
         tabs.addTab("Vehicles", new VehiclesPanel());
         tabs.addTab("Customers", new CustomersPanel());
         tabs.addTab("Rentals", new RentalsPanel());
@@ -82,9 +84,7 @@ public class MainFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent event) {
-                clockTimer.stop();
-                statusTimer.stop();
-                statusTask.ignorePendingResults();
+                stopBackgroundThreads();
                 dispose();
             }
         });
@@ -104,7 +104,10 @@ public class MainFrame extends JFrame {
         retryButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent event) {
-                refreshStatus();
+                databaseLabel.setText("Database: checking...");
+                messageLabel.setText("Checking database...");
+                dashboardPanel.refresh();
+                alertMonitorThread.interrupt();
             }
         });
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 3));
@@ -123,37 +126,7 @@ public class MainFrame extends JFrame {
         return panel;
     }
 
-    private void updateClock() {
-        clockLabel.setText(LocalDateTime.now().format(CLOCK_FORMAT));
-    }
-
-    private void refreshStatus() {
-        messageLabel.setText("Checking database...");
-        statusTask.execute(this, new BackgroundTask.Work<HashMap<String, Object>>() {
-            @Override
-            public HashMap<String, Object> run() throws LfrlmsException {
-                return dashboardService.getSummary();
-            }
-        }, new BackgroundTask.Completion<HashMap<String, Object>>() {
-            @Override
-            public void completed(HashMap<String, Object> summary, Exception failure) {
-                if (failure != null) {
-                    databaseLabel.setText("Database: unavailable");
-                    alertLabel.setText("Alerts: unavailable");
-                    messageLabel.setText(
-                            "Cannot connect. Check MySQL and config/db.properties.");
-                    AppLogger.logException(MainFrame.class.getName(),
-                            "Database status check failed.", failure);
-                    return;
-                }
-                databaseLabel.setText("Database: connected");
-                alertLabel.setText(alertSummary(summary));
-                messageLabel.setText(" ");
-            }
-        });
-    }
-
-    private String alertSummary(HashMap<String, Object> summary) {
+    private String alertSummary(HashMap<String, Integer> summary) {
         return "Alerts - Overdue " + count(summary, "overdueRentals")
                 + " | Upcoming " + count(summary, "upcomingRentals")
                 + " | Leases " + count(summary, "leasesEnding")
@@ -161,8 +134,26 @@ public class MainFrame extends JFrame {
                 + " | Licences " + count(summary, "licensesExpiring");
     }
 
-    private int count(HashMap<String, Object> summary, String name) {
-        Object value = summary.get(name);
+    private int count(HashMap<String, Integer> summary, String name) {
+        Integer value = summary.get(name);
         return value instanceof Number ? ((Number) value).intValue() : 0;
+    }
+
+    private void stopBackgroundThreads() {
+        clockThread.requestStop();
+        alertMonitor.requestStop();
+        alertMonitorThread.interrupt();
+        joinBriefly(clockThread);
+        joinBriefly(alertMonitorThread);
+    }
+
+    private void joinBriefly(Thread thread) {
+        try {
+            thread.join(500L);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            AppLogger.logException(MainFrame.class.getName(),
+                    "Interrupted while stopping background threads.", exception);
+        }
     }
 }
