@@ -3,7 +3,13 @@ package lfrlms.dao;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import lfrlms.exception.LfrlmsException;
+import lfrlms.exception.DataAccessException;
 import lfrlms.exception.ValidationException;
 import lfrlms.util.QueryLog;
 
@@ -37,7 +43,17 @@ public class InsightsDao extends AbstractDao {
     public ArrayList<HashMap<String, Object>> explain(QueryLog.QueryEntry entry)
             throws LfrlmsException {
         String selectSql = validatedSelect(entry);
-        return queryRows("EXPLAIN " + selectSql, entry.getParameterValues());
+        String sql = "EXPLAIN " + selectSql;
+        Object[] parameters = entry.getParameterValues();
+        try (Connection connection = openConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+            bindParameters(statement, parameters, 1);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return readExplainRows(resultSet);
+            }
+        } catch (SQLException exception) {
+            throw new DataAccessException("Could not load the selected query plan.", exception);
+        }
     }
 
     public String showCreateTable(String tableName) throws LfrlmsException {
@@ -108,5 +124,21 @@ public class InsightsDao extends AbstractDao {
             }
         }
         return false;
+    }
+
+    private ArrayList<HashMap<String, Object>> readExplainRows(ResultSet resultSet)
+            throws SQLException {
+        ArrayList<HashMap<String, Object>> rows = new ArrayList<HashMap<String, Object>>();
+        ResultSetMetaData metadata = resultSet.getMetaData();
+        int columnCount = metadata.getColumnCount();
+        while (resultSet.next()) {
+            HashMap<String, Object> row = new HashMap<String, Object>();
+            for (int column = 1; column <= columnCount; column++) {
+                String label = metadata.getColumnLabel(column).toLowerCase(Locale.ROOT);
+                row.put(label, resultSet.getObject(column));
+            }
+            rows.add(row);
+        }
+        return rows;
     }
 }

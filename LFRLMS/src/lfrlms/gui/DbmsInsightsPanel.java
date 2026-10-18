@@ -209,7 +209,8 @@ public class DbmsInsightsPanel extends JPanel {
             return;
         }
         final QueryLog.QueryEntry selected = queryEntries.get(modelRow);
-        planArea.setText("Explaining selected query...");
+        planArea.setText("Running EXPLAIN...");
+        planArea.setCaretPosition(0);
         explainTask.execute(this,
                 new BackgroundTask.Work<ArrayList<HashMap<String, Object>>>() {
                     @Override
@@ -221,7 +222,8 @@ public class DbmsInsightsPanel extends JPanel {
                     public void completed(ArrayList<HashMap<String, Object>> rows,
                             Exception failure) {
                         if (failure != null) {
-                            planArea.setText("The query plan could not be loaded.");
+                            planArea.setText(planFailureMessage(failure));
+                            planArea.setCaretPosition(0);
                             GuiSupport.showFailure(DbmsInsightsPanel.this,
                                     "Explain selected query", failure, null);
                             return;
@@ -348,17 +350,63 @@ public class DbmsInsightsPanel extends JPanel {
             return "EXPLAIN returned no plan rows.";
         }
         StringBuffer text = new StringBuffer();
-        String[] columns = new String[] {"id", "select_type", "table", "partitions",
-            "type", "possible_keys", "key", "key_len", "ref", "rows", "filtered", "extra"};
+        String[] columns = new String[] {"id", "select_type", "table", "type",
+            "possible_keys", "key", "rows", "Extra"};
+        for (int column = 0; column < columns.length; column++) {
+            if (column > 0) {
+                text.append(" | ");
+            }
+            text.append(columns[column]);
+        }
+        text.append('\n');
+        for (int column = 0; column < columns.length; column++) {
+            if (column > 0) {
+                text.append("-+-");
+            }
+            text.append("----------------");
+        }
+        text.append('\n');
         for (HashMap<String, Object> row : rows) {
-            for (String column : columns) {
-                if (row.containsKey(column)) {
-                    text.append(column).append(": ").append(row.get(column)).append('\n');
+            boolean recognizedColumn = false;
+            for (int column = 0; column < columns.length; column++) {
+                if (column > 0) {
+                    text.append(" | ");
                 }
+                Object value = planValue(row, columns[column]);
+                if (value != null) {
+                    recognizedColumn = true;
+                    text.append(value);
+                }
+            }
+            if (!recognizedColumn) {
+                text.append("Plan row: ").append(row == null ? "(empty)" : row.toString());
             }
             text.append('\n');
         }
         return text.toString();
+    }
+
+    private Object planValue(HashMap<String, Object> row, String column) {
+        if (row == null) {
+            return null;
+        }
+        String expected = column.toLowerCase(java.util.Locale.ROOT);
+        for (String key : row.keySet()) {
+            if (key != null && expected.equals(key.toLowerCase(java.util.Locale.ROOT))) {
+                return row.get(key);
+            }
+        }
+        return null;
+    }
+
+    private String planFailureMessage(Exception failure) {
+        if (failure instanceof LfrlmsException) {
+            String message = failure.getMessage();
+            if (message != null && !message.trim().isEmpty()) {
+                return message;
+            }
+        }
+        return "The query plan could not be loaded. Check the selected query and try again.";
     }
 
     private JPanel definitionTable(SharedTableModel model) {
