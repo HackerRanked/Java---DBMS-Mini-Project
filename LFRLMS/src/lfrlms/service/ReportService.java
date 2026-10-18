@@ -32,9 +32,17 @@ public class ReportService {
         return reportDao.activeRentals(pageNumber, pageSize);
     }
 
+    public long countActiveRentals() throws LfrlmsException {
+        return reportDao.countActiveRentals();
+    }
+
     public ArrayList<HashMap<String, Object>> activeLeases(int pageNumber, int pageSize)
             throws LfrlmsException {
         return reportDao.activeLeases(pageNumber, pageSize);
+    }
+
+    public long countActiveLeases() throws LfrlmsException {
+        return reportDao.countActiveLeases();
     }
 
     public TreeMap<String, BigDecimal> revenueByMonth(LocalDate from, LocalDate to)
@@ -47,6 +55,10 @@ public class ReportService {
         return reportDao.outstandingBalances(pageNumber, pageSize);
     }
 
+    public long countOutstandingBalances() throws LfrlmsException {
+        return reportDao.countOutstandingBalances();
+    }
+
     public ArrayList<HashMap<String, Object>> mostRentedVehicles(int limit)
             throws LfrlmsException {
         return reportDao.mostRentedVehicles(limit);
@@ -55,6 +67,10 @@ public class ReportService {
     public ArrayList<HashMap<String, Object>> maintenanceDue(LocalDate throughDate,
             int pageNumber, int pageSize) throws LfrlmsException {
         return reportDao.maintenanceDue(throughDate, pageNumber, pageSize);
+    }
+
+    public long countMaintenanceDue(LocalDate throughDate) throws LfrlmsException {
+        return reportDao.countMaintenanceDue(throughDate);
     }
 
     public ArrayList<HashMap<String, Object>> customerTransactionHistory(int customerId,

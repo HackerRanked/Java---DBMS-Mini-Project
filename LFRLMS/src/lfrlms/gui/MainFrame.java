@@ -76,7 +76,7 @@ public class MainFrame extends JFrame {
         tabs.addTab("Payments", new PaymentsPanel());
         tabs.addTab("Maintenance", new MaintenancePanel());
         tabs.addTab("Drivers", new DriversPanel());
-        tabs.addTab("Reports", placeholder("Reports will be added later."));
+        tabs.addTab("Reports", new ReportsPanel());
         tabs.addTab("DBMS Insights", placeholder("Database insights will be added later."));
         add(tabs, BorderLayout.CENTER);
         add(buildStatusBar(), BorderLayout.SOUTH);
