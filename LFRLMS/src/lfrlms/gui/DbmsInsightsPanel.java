@@ -18,6 +18,7 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
 import lfrlms.exception.LfrlmsException;
+import lfrlms.exception.ValidationException;
 import lfrlms.service.InsightsService;
 import lfrlms.service.InsightsService.FeatureExample;
 import lfrlms.util.QueryLog;
@@ -64,11 +65,7 @@ public class DbmsInsightsPanel extends JPanel {
         checklistModel = new SharedTableModel(new String[] {"SQL feature", "Example object"});
         queryTable = SharedTableModel.createTable(queryModel);
         queryTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-        queryTable.getColumnModel().getColumn(0).setPreferredWidth(170);
-        queryTable.getColumnModel().getColumn(1).setPreferredWidth(620);
-        queryTable.getColumnModel().getColumn(2).setPreferredWidth(380);
-        queryTable.getColumnModel().getColumn(3).setPreferredWidth(120);
-        queryTable.getColumnModel().getColumn(4).setPreferredWidth(70);
+        applyQueryLogColumnWidths();
         tableSelector = new JComboBox<String>();
         planArea = readOnlyArea();
         createTableArea = readOnlyArea();
@@ -187,6 +184,7 @@ public class DbmsInsightsPanel extends JPanel {
                     rows.add(row);
                 }
                 queryModel.replaceRows(rows);
+                applyQueryLogColumnWidths();
                 queryMessage.setText(result.isEmpty()
                         ? "No SQL statements recorded yet."
                         : result.size() + " recent statements");
@@ -224,6 +222,9 @@ public class DbmsInsightsPanel extends JPanel {
                         if (failure != null) {
                             planArea.setText(planFailureMessage(failure));
                             planArea.setCaretPosition(0);
+                            if (failure instanceof ValidationException) {
+                                return;
+                            }
                             GuiSupport.showFailure(DbmsInsightsPanel.this,
                                     "Explain selected query", failure, null);
                             return;
@@ -347,43 +348,25 @@ public class DbmsInsightsPanel extends JPanel {
 
     private String formatPlan(ArrayList<HashMap<String, Object>> rows) {
         if (rows == null || rows.isEmpty()) {
-            return "EXPLAIN returned no plan rows.";
+            return "EXPLAIN returned no plan text.";
         }
         StringBuffer text = new StringBuffer();
-        String[] columns = new String[] {"id", "select_type", "table", "type",
-            "possible_keys", "key", "rows", "Extra"};
-        for (int column = 0; column < columns.length; column++) {
-            if (column > 0) {
-                text.append(" | ");
-            }
-            text.append(columns[column]);
-        }
-        text.append('\n');
-        for (int column = 0; column < columns.length; column++) {
-            if (column > 0) {
-                text.append("-+-");
-            }
-            text.append("----------------");
-        }
-        text.append('\n');
+        boolean hasPlanText = false;
         for (HashMap<String, Object> row : rows) {
-            boolean recognizedColumn = false;
-            for (int column = 0; column < columns.length; column++) {
-                if (column > 0) {
-                    text.append(" | ");
-                }
-                Object value = planValue(row, columns[column]);
-                if (value != null) {
-                    recognizedColumn = true;
-                    text.append(value);
-                }
+            Object value = planValue(row, "explain");
+            if (value == null && row != null && row.size() == 1) {
+                value = row.values().iterator().next();
             }
-            if (!recognizedColumn) {
-                text.append("Plan row: ").append(row == null ? "(empty)" : row.toString());
+            if (value != null) {
+                if (hasPlanText) {
+                    text.append('\n');
+                }
+                text.append(value);
+                hasPlanText = true;
             }
-            text.append('\n');
         }
-        return text.toString();
+        String plan = text.toString();
+        return plan.trim().isEmpty() ? "EXPLAIN returned no plan text." : plan;
     }
 
     private Object planValue(HashMap<String, Object> row, String column) {
@@ -407,6 +390,14 @@ public class DbmsInsightsPanel extends JPanel {
             }
         }
         return "The query plan could not be loaded. Check the selected query and try again.";
+    }
+
+    private void applyQueryLogColumnWidths() {
+        queryTable.getColumnModel().getColumn(0).setPreferredWidth(170);
+        queryTable.getColumnModel().getColumn(1).setPreferredWidth(620);
+        queryTable.getColumnModel().getColumn(2).setPreferredWidth(380);
+        queryTable.getColumnModel().getColumn(3).setPreferredWidth(120);
+        queryTable.getColumnModel().getColumn(4).setPreferredWidth(70);
     }
 
     private JPanel definitionTable(SharedTableModel model) {

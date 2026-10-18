@@ -43,7 +43,7 @@ public class InsightsDao extends AbstractDao {
     public ArrayList<HashMap<String, Object>> explain(QueryLog.QueryEntry entry)
             throws LfrlmsException {
         String selectSql = validatedSelect(entry);
-        String sql = "EXPLAIN " + selectSql;
+        String sql = "EXPLAIN FORMAT=TREE " + selectSql;
         Object[] parameters = entry.getParameterValues();
         try (Connection connection = openConnection();
                 PreparedStatement statement = connection.prepareStatement(sql)) {
